@@ -1,0 +1,152 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\GameSession;
+use App\Models\GameSessionAnswer;
+use App\Models\Question;
+use App\Models\QuestionChoice;
+
+class GameSessionService
+{
+    public function getNextQuestion(GameSession $session): ?Question
+    {
+        $answeredIds = $session->answers()->pluck('question_id');
+
+        return Question::where('game_mode_id', $session->game_mode_id)
+            ->where('level_id', $session->level_id)
+            ->where('is_active', true)
+            ->whereNotIn('id', $answeredIds)
+            ->orderBy('id')
+            ->with(['choices' => fn ($q) => $q->orderBy('sort_order'), 'gameMode'])
+            ->first();
+    }
+
+    public function getTotalQuestions(GameSession $session): int
+    {
+        return Question::where('game_mode_id', $session->game_mode_id)
+            ->where('level_id', $session->level_id)
+            ->where('is_active', true)
+            ->count();
+    }
+
+    /**
+     * @return array{correct: bool, explanation: string|null, points_earned: int, correct_choice_id: int|null, session: array<string,mixed>, is_game_over: bool}
+     */
+    public function submitAnswer(
+        GameSession $session,
+        ?int $choiceId,
+        int $timeTakenSeconds
+    ): array {
+        // Resolve the question being answered
+        if ($choiceId !== null) {
+            $choice = QuestionChoice::with('question')->findOrFail($choiceId);
+            $question = $choice->question;
+
+            abort_if(
+                $question->game_mode_id !== $session->game_mode_id
+                    || $question->level_id !== $session->level_id,
+                403,
+                'Choice does not belong to this session.'
+            );
+        } else {
+            // Timeout: find the current unanswered question
+            $question = $this->getNextQuestion($session);
+            abort_if($question === null, 422, 'No active question to time out.');
+        }
+
+        if ($session->answers()->where('question_id', $question->id)->exists()) {
+            abort(422, 'Question already answered.');
+        }
+
+        $isCorrect = $choiceId !== null && ($choice->is_correct ?? false);
+        $pointsEarned = 0;
+        $correctChoiceId = $question->choices()->where('is_correct', true)->value('id');
+
+        if ($isCorrect) {
+            $timeBonus = max(0, $question->time_limit_seconds - $timeTakenSeconds) * 5;
+            $streakBonus = min($session->streak_count, 5) * 10;
+            $pointsEarned = $question->points + $timeBonus + $streakBonus;
+        }
+
+        GameSessionAnswer::create([
+            'game_session_id' => $session->id,
+            'question_id' => $question->id,
+            'selected_choice_id' => $choiceId,
+            'is_correct' => $isCorrect,
+            'time_taken_seconds' => $timeTakenSeconds,
+            'points_earned' => $pointsEarned,
+        ]);
+
+        $newScore = $session->score + $pointsEarned;
+        $newStreak = $isCorrect ? $session->streak_count + 1 : 0;
+        $newLives = $isCorrect ? $session->lives_remaining : max(0, $session->lives_remaining - 1);
+        $status = $session->status;
+
+        if ($newLives === 0) {
+            $status = 'failed';
+        }
+
+        $session->update([
+            'score' => $newScore,
+            'streak_count' => $newStreak,
+            'lives_remaining' => $newLives,
+            'status' => $status,
+        ]);
+
+        $nextQuestion = $status === 'failed' ? null : $this->getNextQuestion($session->fresh());
+        $isGameOver = $status === 'failed' || $nextQuestion === null;
+
+        if ($isGameOver && $status !== 'failed') {
+            $session->update(['status' => 'completed', 'ended_at' => now()]);
+            $xpGained = (int) round($newScore * 0.1);
+            $session->user->increment('xp_total', $xpGained);
+        }
+
+        $session->refresh();
+
+        return [
+            'is_correct' => $isCorrect,
+            'timed_out' => $choiceId === null,
+            'explanation' => $question->explanation,
+            'points_earned' => $pointsEarned,
+            'correct_choice_id' => $correctChoiceId,
+            'score' => $session->score,
+            'lives_remaining' => $session->lives_remaining,
+            'streak_count' => $session->streak_count,
+            'session_status' => $session->status,
+            'is_game_over' => $isGameOver,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function formatQuestion(Question $question, GameSession $session): array
+    {
+        $total = $this->getTotalQuestions($session);
+        $answered = $session->answers()->count();
+
+        return [
+            'question' => [
+                'id' => $question->id,
+                'game_mode_code' => $question->gameMode->code,
+                'prompt_text' => $question->prompt_text,
+                'prompt_image_path' => $question->prompt_image_path,
+                'time_limit_seconds' => $question->time_limit_seconds,
+                'points' => $question->points,
+            ],
+            'choices' => $question->choices->map(fn (QuestionChoice $c) => [
+                'id' => $c->id,
+                'choice_text' => $c->choice_text,
+                'choice_image_path' => $c->choice_image_path,
+                'sort_order' => $c->sort_order,
+            ])->values(),
+            'progress' => [
+                'answered' => $answered,
+                'total' => $total,
+                'question_number' => $answered + 1,
+            ],
+        ];
+    }
+}
