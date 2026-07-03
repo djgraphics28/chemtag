@@ -15,13 +15,14 @@ use Illuminate\Support\Carbon;
 class GameSession extends Model
 {
     protected $fillable = [
-        'user_id', 'game_mode_id', 'level_id', 'score',
+        'user_id', 'game_mode_id', 'topic_id', 'question_ids', 'score',
         'lives_remaining', 'streak_count', 'status', 'started_at', 'ended_at',
     ];
 
     protected function casts(): array
     {
         return [
+            'question_ids' => 'array',
             'started_at' => 'datetime',
             'ended_at' => 'datetime',
         ];
@@ -39,10 +40,10 @@ class GameSession extends Model
         return $this->belongsTo(GameMode::class);
     }
 
-    /** @return BelongsTo<Level, $this> */
-    public function level(): BelongsTo
+    /** @return BelongsTo<Topic, $this> */
+    public function topic(): BelongsTo
     {
-        return $this->belongsTo(Level::class);
+        return $this->belongsTo(Topic::class);
     }
 
     /** @return HasMany<GameSessionAnswer, $this> */

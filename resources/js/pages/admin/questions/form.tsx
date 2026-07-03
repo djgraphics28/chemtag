@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 interface Choice {
     id?: number;
     choice_text: string;
+    feedback_text?: string | null;
     choice_image_path: string;
     is_correct: boolean;
     sort_order: number;
@@ -17,7 +18,7 @@ interface QuestionFormProps {
     question?: {
         id: number;
         game_mode_id: number;
-        level_id: number;
+        topic_id: number;
         prompt_text: string | null;
         prompt_image_path: string | null;
         explanation: string | null;
@@ -27,19 +28,19 @@ interface QuestionFormProps {
         choices: Choice[];
     };
     game_modes: { id: number; code: string; title: string }[];
-    levels: { id: number; name: string; order: number; difficulty: string }[];
+    topics: { id: number; name: string; order: number }[];
 }
 
 function emptyChoice(order: number): Choice {
-    return { choice_text: '', choice_image_path: '', is_correct: false, sort_order: order };
+    return { choice_text: '', choice_image_path: '', is_correct: false, feedback_text: '', sort_order: order };
 }
 
-export default function QuestionForm({ question, game_modes, levels }: QuestionFormProps) {
+export default function QuestionForm({ question, game_modes, topics }: QuestionFormProps) {
     const isEdit = !!question;
 
     const { data, setData, post, put, processing, errors } = useForm({
         game_mode_id: question?.game_mode_id ?? game_modes[0]?.id ?? 0,
-        level_id: question?.level_id ?? levels[0]?.id ?? 0,
+        topic_id: question?.topic_id ?? topics[0]?.id ?? 0,
         prompt_text: question?.prompt_text ?? '',
         prompt_image_path: question?.prompt_image_path ?? '',
         explanation: question?.explanation ?? '',
@@ -109,15 +110,15 @@ export default function QuestionForm({ question, game_modes, levels }: QuestionF
                                 <InputError message={errors.game_mode_id} />
                             </div>
                             <div className="grid gap-2">
-                                <Label>Level</Label>
+                                <Label>Topic</Label>
                                 <select
-                                    value={data.level_id}
-                                    onChange={(e) => setData('level_id', parseInt(e.target.value))}
+                                    value={data.topic_id}
+                                    onChange={(e) => setData('topic_id', parseInt(e.target.value))}
                                     className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
                                 >
-                                    {levels.map((l) => <option key={l.id} value={l.id}>{l.name} ({l.difficulty})</option>)}
+                                    {topics.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                                 </select>
-                                <InputError message={errors.level_id} />
+                                <InputError message={errors.topic_id} />
                             </div>
                         </div>
                         <div className="grid grid-cols-3 gap-4">
@@ -222,6 +223,18 @@ export default function QuestionForm({ question, game_modes, levels }: QuestionF
                                         placeholder="Image URL (optional)"
                                         value={choice.choice_image_path}
                                         onChange={(e) => updateChoice(i, 'choice_image_path', e.target.value)}
+                                    />
+                                    <textarea
+                                        placeholder={
+                                            choice.is_correct
+                                                ? 'Feedback shown after answering, e.g. "Correct! You identified the right IUPAC name."'
+                                                : 'Feedback shown after answering, e.g. "Incorrect. The chain was numbered from the wrong end…"'
+                                        }
+                                        value={choice.feedback_text ?? ''}
+                                        onChange={(e) => updateChoice(i, 'feedback_text', e.target.value)}
+                                        rows={2}
+                                        maxLength={1000}
+                                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
                                     />
                                 </div>
                                 {data.choices.length > 2 && (

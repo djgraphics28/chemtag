@@ -25,11 +25,11 @@ export function ChoiceGrid({ choices, selectedId, result, disabled, onSelect }: 
     }
 
     const variantClasses: Record<string, string> = {
-        idle: 'border-white/20 bg-white/5 text-white hover:border-game-primary/60 hover:bg-game-primary/10',
-        selected: 'border-game-primary bg-game-primary/20 text-white',
+        idle: 'border-foreground/20 bg-foreground/5 text-foreground hover:border-game-primary/60 hover:bg-game-primary/10',
+        selected: 'border-game-primary bg-game-primary/20 text-foreground',
         correct: 'border-game-correct bg-game-correct/20 text-game-correct shadow-[0_0_24px_-4px_var(--color-game-correct)]',
-        wrong: 'border-game-danger bg-game-danger/20 text-game-danger line-through',
-        dim: 'border-white/10 bg-white/5 text-white/30',
+        wrong: 'border-game-danger bg-game-danger/20 text-game-danger',
+        dim: 'border-foreground/10 bg-foreground/5 text-foreground/30',
     };
 
     const variantMotion: Record<string, object | undefined> = {
@@ -66,15 +66,34 @@ export function ChoiceGrid({ choices, selectedId, result, disabled, onSelect }: 
                         )}
                     >
                         <span className="shrink-0 text-xs font-bold opacity-60">{label}</span>
-                        {choice.choice_image_path ? (
-                            <img
-                                src={choice.choice_image_path}
-                                alt={choice.choice_text ?? `Choice ${label}`}
-                                className="h-12 w-auto object-contain"
-                            />
-                        ) : (
-                            <span className="text-sm font-medium leading-snug">{choice.choice_text}</span>
-                        )}
+                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                            {choice.choice_image_path ? (
+                                <img
+                                    src={choice.choice_image_path}
+                                    alt={choice.choice_text ?? `Choice ${label}`}
+                                    className="h-12 w-auto object-contain"
+                                />
+                            ) : (
+                                <span className={cn('text-sm font-medium leading-snug', variant === 'wrong' && 'line-through')}>
+                                    {choice.choice_text}
+                                </span>
+                            )}
+                            {choice.id === selectedId && result?.choice_feedback?.[choice.id] && (
+                                <motion.p
+                                    initial={{ opacity: 0, y: -4 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.25 }}
+                                    className={cn(
+                                        'rounded-lg border px-2.5 py-1.5 text-xs font-normal italic leading-snug no-underline',
+                                        choice.id === result.correct_choice_id
+                                            ? 'border-game-correct/40 bg-game-correct/10 text-game-correct'
+                                            : 'border-game-danger/40 bg-game-danger/10 text-game-danger',
+                                    )}
+                                >
+                                    {result.choice_feedback[choice.id]}
+                                </motion.p>
+                            )}
+                        </div>
                     </motion.button>
                 );
             })}

@@ -24,7 +24,7 @@ export function HeartsDisplay({ lives, maxLives = 3 }: HeartsDisplayProps) {
                     >
                         <Heart
                             size={20}
-                            className={filled ? 'fill-game-danger text-game-danger' : 'text-white/20'}
+                            className={filled ? 'fill-game-danger text-game-danger' : 'text-foreground/20'}
                             strokeWidth={1.5}
                         />
                     </motion.span>

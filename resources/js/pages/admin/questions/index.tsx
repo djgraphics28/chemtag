@@ -11,11 +11,11 @@ import type { AdminQuestion, PaginatedData } from '@/types/admin';
 interface QuestionsIndexProps {
     questions: PaginatedData<AdminQuestion>;
     game_modes: { id: number; code: string; title: string }[];
-    levels: { id: number; name: string; order: number }[];
-    filters: { search?: string; game_mode_id?: string; level_id?: string };
+    topics: { id: number; name: string; order: number }[];
+    filters: { search?: string; game_mode_id?: string; topic_id?: string };
 }
 
-export default function QuestionsIndex({ questions, game_modes, levels, filters }: QuestionsIndexProps) {
+export default function QuestionsIndex({ questions, game_modes, topics, filters }: QuestionsIndexProps) {
     const searchRef = useRef<HTMLInputElement>(null);
     const fileRef = useRef<HTMLInputElement>(null);
     const [importOpen, setImportOpen] = useState(false);
@@ -94,12 +94,12 @@ export default function QuestionsIndex({ questions, game_modes, levels, filters 
                         {game_modes.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
                     </select>
                     <select
-                        value={filters.level_id ?? ''}
-                        onChange={(e) => applyFilter({ level_id: e.target.value })}
+                        value={filters.topic_id ?? ''}
+                        onChange={(e) => applyFilter({ topic_id: e.target.value })}
                         className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
                     >
-                        <option value="">All levels</option>
-                        {levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                        <option value="">All topics</option>
+                        {topics.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                     </select>
                 </div>
 
@@ -107,7 +107,7 @@ export default function QuestionsIndex({ questions, game_modes, levels, filters 
                     <Thead>
                         <Th>Prompt</Th>
                         <Th>Mode</Th>
-                        <Th>Level</Th>
+                        <Th>Topic</Th>
                         <Th>Pts</Th>
                         <Th>Choices</Th>
                         <Th>Status</Th>
@@ -125,7 +125,7 @@ export default function QuestionsIndex({ questions, game_modes, levels, filters 
                                 <Td>
                                     <Badge variant="secondary" className="text-xs whitespace-nowrap">{q.game_mode?.title}</Badge>
                                 </Td>
-                                <Td className="text-muted-foreground text-xs whitespace-nowrap">{q.level?.name}</Td>
+                                <Td className="text-muted-foreground text-xs whitespace-nowrap">{q.topic?.name}</Td>
                                 <Td className="tabular-nums text-xs">{q.points}</Td>
                                 <Td className="tabular-nums text-xs">{q.choices_count}</Td>
                                 <Td>

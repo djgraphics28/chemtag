@@ -52,6 +52,7 @@ interface RoundEndedEvent {
     roundNumber: number;
     correctChoiceId: number;
     explanation: string | null;
+    choiceFeedback: Record<number, string>;
     roundResults: { user_id: number; name: string; is_correct: boolean; points_earned: number; time_taken_ms: number }[];
     scoreboard: ScoreRow[];
     nextRoundNumber: number | null;
@@ -66,7 +67,7 @@ interface RoomProps {
         host_id: number;
         max_players: number;
         game_mode: { code: string; title: string };
-        level: { name: string };
+        topic: { name: string };
         total_rounds: number;
     };
     players: BattlePlayer[];
@@ -199,7 +200,7 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                 if (e.isFinal) {
                     setTimeout(() => {
                         setPhase('finished');
-                        soundsRef.current.playLevelComplete();
+                        soundsRef.current.playTopicComplete();
                     }, 3500);
                 } else if (e.nextRoundStartsAt) {
                     setTimeout(() => void fetchRound(), Math.max(500, new Date(e.nextRoundStartsAt).getTime() - serverNow() - 1500));
@@ -264,15 +265,15 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
             <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-4 py-6">
                 {/* Top bar */}
                 <div className="mb-6 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-white/60">
+                    <div className="flex items-center gap-2 text-sm text-foreground/60">
                         <Swords size={16} className="text-game-coral" />
-                        {room.game_mode.title} · {room.level.name}
+                        {room.game_mode.title} · {room.topic.name}
                     </div>
                     {phase === 'waiting' && (
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="text-white/50 hover:text-white"
+                            className="text-foreground/50 hover:text-foreground"
                             onClick={() => router.post(`/battle/rooms/${room.code}/leave`)}
                         >
                             <DoorOpen size={14} className="mr-1" />
@@ -285,26 +286,26 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                 {phase === 'waiting' && (
                     <div className="flex flex-1 flex-col gap-6">
                         {/* Room code */}
-                        <div className="rounded-3xl border border-white/10 bg-white/5 px-6 py-8 text-center">
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-white/40">Room Code</p>
+                        <div className="rounded-3xl border border-foreground/10 bg-foreground/5 px-6 py-8 text-center">
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-foreground/40">Room Code</p>
                             <button
                                 onClick={copyCode}
-                                className="group inline-flex items-center gap-3 font-mono text-5xl font-extrabold tracking-[0.25em] text-white transition hover:text-game-lime"
+                                className="group inline-flex items-center gap-3 font-mono text-5xl font-extrabold tracking-[0.25em] text-foreground transition hover:text-game-lime"
                             >
                                 {room.code}
                                 {copied ? <Check size={22} className="text-game-correct" /> : <Copy size={22} className="opacity-40 group-hover:opacity-100" />}
                             </button>
-                            <p className="mt-3 text-xs text-white/40">Share this code — friends can join from the Battle Arena</p>
+                            <p className="mt-3 text-xs text-foreground/40">Share this code — friends can join from the Battle Arena</p>
                         </div>
 
                         {/* Players */}
                         <div>
                             <div className="mb-3 flex items-center justify-between">
-                                <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-white/40">
+                                <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-foreground/40">
                                     <Users size={13} />
                                     Players ({players.length}/{room.max_players})
                                 </h2>
-                                <span className="text-xs text-white/30">min. 2 to start</span>
+                                <span className="text-xs text-foreground/30">min. 2 to start</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                                 <AnimatePresence>
@@ -318,24 +319,24 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                                                 'flex items-center gap-2.5 rounded-2xl border px-3 py-3',
                                                 p.is_ready || p.is_host
                                                     ? 'border-game-correct/40 bg-game-correct/10'
-                                                    : 'border-white/10 bg-white/5',
+                                                    : 'border-foreground/10 bg-foreground/5',
                                             )}
                                         >
                                             <div className="relative">
                                                 <PlayerAvatar name={p.name} avatarPath={p.avatar_path} />
                                                 <span
                                                     className={cn(
-                                                        'absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-game-navy',
-                                                        onlineIds.includes(p.user_id) ? 'bg-game-correct' : 'bg-white/20',
+                                                        'absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-background',
+                                                        onlineIds.includes(p.user_id) ? 'bg-game-correct' : 'bg-foreground/20',
                                                     )}
                                                 />
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <p className="flex items-center gap-1 truncate text-sm font-semibold text-white">
+                                                <p className="flex items-center gap-1 truncate text-sm font-semibold text-foreground">
                                                     {p.name}
                                                     {p.is_host && <Crown size={12} className="shrink-0 fill-game-warning text-game-warning" />}
                                                 </p>
-                                                <p className="text-[11px] text-white/40">
+                                                <p className="text-[11px] text-foreground/40">
                                                     {p.is_host ? 'Host' : p.is_ready ? 'Ready!' : 'Not ready'}
                                                 </p>
                                             </div>
@@ -360,7 +361,7 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                                         Start Battle
                                     </Button>
                                     {!canStart && (
-                                        <p className="text-center text-xs text-white/40">
+                                        <p className="text-center text-xs text-foreground/40">
                                             {players.length < 2 ? 'Waiting for at least one more player…' : 'Waiting for everyone to be ready…'}
                                         </p>
                                     )}
@@ -372,8 +373,8 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                                     className={cn(
                                         'w-full font-bold',
                                         me?.is_ready
-                                            ? 'bg-white/10 text-white hover:bg-white/20'
-                                            : 'bg-game-correct text-game-navy hover:bg-game-correct/90',
+                                            ? 'bg-foreground/10 text-foreground hover:bg-foreground/20'
+                                            : 'bg-game-correct text-background hover:bg-game-correct/90',
                                     )}
                                 >
                                     <Check size={18} className="mr-1.5" />
@@ -387,7 +388,7 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                 {/* ═══ COUNTDOWN ═══ */}
                 {phase === 'countdown' && (
                     <div className="flex flex-1 flex-col items-center justify-center gap-4">
-                        <p className="text-sm font-semibold uppercase tracking-widest text-white/40">
+                        <p className="text-sm font-semibold uppercase tracking-widest text-foreground/40">
                             Round {round?.round_number ?? 1} of {round?.total_rounds ?? room.total_rounds}
                         </p>
                         <motion.div
@@ -406,18 +407,18 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                     <div className="flex flex-1 flex-col gap-5">
                         {/* Battle HUD */}
                         <div className="flex items-center justify-between text-sm">
-                            <span className="font-semibold text-white/60">
+                            <span className="font-semibold text-foreground/60">
                                 Round {round.round_number}/{round.total_rounds}
                             </span>
                             <span
                                 className={cn(
                                     'font-display text-2xl font-extrabold tabular-nums',
-                                    secondsLeft <= 5 ? 'animate-pulse text-game-danger' : 'text-white',
+                                    secondsLeft <= 5 ? 'animate-pulse text-game-danger' : 'text-foreground',
                                 )}
                             >
                                 {secondsLeft}s
                             </span>
-                            <span className="text-xs text-white/40">
+                            <span className="text-xs text-foreground/40">
                                 {answeredCount}/{players.length} answered
                             </span>
                         </div>
@@ -426,7 +427,7 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                         <motion.div
                             initial={{ opacity: 0, y: -12 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="rounded-3xl border border-white/10 bg-white/5 px-6 py-7 text-center"
+                            className="rounded-3xl border border-foreground/10 bg-foreground/5 px-6 py-7 text-center"
                         >
                             {round.question.prompt_image_path && (
                                 <img
@@ -436,9 +437,9 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                                 />
                             )}
                             {round.question.prompt_text && (
-                                <p className="text-lg font-semibold leading-snug text-white">{round.question.prompt_text}</p>
+                                <p className="text-lg font-semibold leading-snug text-foreground">{round.question.prompt_text}</p>
                             )}
-                            <p className="mt-2 text-xs text-white/40">{round.question.points} pts + speed bonus</p>
+                            <p className="mt-2 text-xs text-foreground/40">{round.question.points} pts + speed bonus</p>
                         </motion.div>
 
                         {/* Choices */}
@@ -455,10 +456,10 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                                     className={cn(
                                         'flex min-h-[76px] items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition-colors',
                                         selectedId === c.id
-                                            ? 'border-game-primary bg-game-primary/25 text-white'
+                                            ? 'border-game-primary bg-game-primary/25 text-foreground'
                                             : selectedId !== null
-                                              ? 'border-white/10 bg-white/5 text-white/30'
-                                              : 'cursor-pointer border-white/20 bg-white/5 text-white hover:border-game-primary/60',
+                                              ? 'border-foreground/10 bg-foreground/5 text-foreground/30'
+                                              : 'cursor-pointer border-foreground/20 bg-foreground/5 text-foreground hover:border-game-primary/60',
                                     )}
                                 >
                                     <span className="text-xs font-bold opacity-60">{String.fromCharCode(65 + i)}</span>
@@ -475,7 +476,7 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                             <motion.p
                                 initial={{ opacity: 0, y: 8 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="text-center text-sm font-semibold text-white/60"
+                                className="text-center text-sm font-semibold text-foreground/60"
                             >
                                 Answer locked in! Waiting for the others…
                             </motion.p>
@@ -489,13 +490,26 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                         {roundEnd.roundResults.find((r) => r.user_id === myId)?.is_correct && <ConfettiBurst />}
 
                         <div className="text-center">
-                            <h2 className="font-display text-3xl font-bold text-white">
+                            <h2 className="font-display text-3xl font-bold text-foreground">
                                 Round {roundEnd.roundNumber} Results
                             </h2>
                             {roundEnd.explanation && (
-                                <p className="mx-auto mt-2 max-w-md text-sm text-white/50">{roundEnd.explanation}</p>
+                                <p className="mx-auto mt-2 max-w-md text-sm text-foreground/50">{roundEnd.explanation}</p>
                             )}
                         </div>
+
+                        {/* Feedback for the choice you picked */}
+                        {selectedId !== null && roundEnd.choiceFeedback?.[selectedId] && (
+                            <p
+                                className={
+                                    selectedId === roundEnd.correctChoiceId
+                                        ? 'rounded-xl border border-game-correct/40 bg-game-correct/10 px-4 py-2.5 text-sm italic text-game-correct'
+                                        : 'rounded-xl border border-game-danger/40 bg-game-danger/10 px-4 py-2.5 text-sm italic text-game-danger'
+                                }
+                            >
+                                {roundEnd.choiceFeedback[selectedId]}
+                            </p>
+                        )}
 
                         {/* Per-round results */}
                         <div className="space-y-2">
@@ -513,11 +527,11 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                                         <span className={cn('text-lg', r.is_correct ? '' : 'opacity-50')}>
                                             {r.is_correct ? '✅' : '❌'}
                                         </span>
-                                        <span className={cn('flex-1 text-sm font-semibold', r.user_id === myId ? 'text-game-lime' : 'text-white')}>
+                                        <span className={cn('flex-1 text-sm font-semibold', r.user_id === myId ? 'text-game-lime' : 'text-foreground')}>
                                             {r.user_id === myId ? 'You' : r.name}
                                         </span>
-                                        <span className="text-xs text-white/40">{(r.time_taken_ms / 1000).toFixed(1)}s</span>
-                                        <span className={cn('font-display font-bold', r.is_correct ? 'text-game-correct' : 'text-white/30')}>
+                                        <span className="text-xs text-foreground/40">{(r.time_taken_ms / 1000).toFixed(1)}s</span>
+                                        <span className={cn('font-display font-bold', r.is_correct ? 'text-game-correct' : 'text-foreground/30')}>
                                             +{r.points_earned}
                                         </span>
                                     </div>
@@ -527,7 +541,7 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                         {/* Standings */}
                         <MiniScoreboard scoreboard={scoreboard} myId={myId} />
 
-                        <p className="text-center text-xs text-white/40">
+                        <p className="text-center text-xs text-foreground/40">
                             {roundEnd.isFinal ? 'Final results coming up…' : 'Next round starting…'}
                         </p>
                     </div>
@@ -539,8 +553,8 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                         <ConfettiBurst mode="rain" count={60} />
 
                         <div className="text-center">
-                            <p className="mb-1 text-sm font-semibold uppercase tracking-widest text-white/40">Battle Complete</p>
-                            <h1 className="font-display text-4xl font-extrabold text-white">
+                            <p className="mb-1 text-sm font-semibold uppercase tracking-widest text-foreground/40">Battle Complete</p>
+                            <h1 className="font-display text-4xl font-extrabold text-foreground">
                                 {scoreboard[0]?.user_id === myId ? '🏆 Victory!' : `${scoreboard[0]?.name ?? '—'} wins!`}
                             </h1>
                         </div>
@@ -562,7 +576,7 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                                         className="flex w-24 flex-col items-center gap-2"
                                     >
                                         <span className="text-3xl">{medals[[1, 0, 2].indexOf(rank)]}</span>
-                                        <p className={cn('max-w-full truncate text-sm font-bold', row.user_id === myId ? 'text-game-lime' : 'text-white')}>
+                                        <p className={cn('max-w-full truncate text-sm font-bold', row.user_id === myId ? 'text-game-lime' : 'text-foreground')}>
                                             {row.user_id === myId ? 'You' : row.name}
                                         </p>
                                         <FinalScore value={row.score} />
@@ -571,7 +585,7 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                                                 'w-full rounded-t-xl bg-gradient-to-t',
                                                 [1, 0, 2].indexOf(rank) === 1
                                                     ? 'from-game-primary/60 to-game-primary/20'
-                                                    : 'from-white/15 to-white/5',
+                                                    : 'from-foreground/15 to-foreground/5',
                                                 heights[[1, 0, 2].indexOf(rank)],
                                             )}
                                         />
@@ -590,7 +604,7 @@ export default function BattleRoom({ room, players: initialPlayers, scoreboard: 
                                     Back to Arena
                                 </Link>
                             </Button>
-                            <Button asChild variant="ghost" size="lg" className="text-white/60 hover:text-white">
+                            <Button asChild variant="ghost" size="lg" className="text-foreground/60 hover:text-foreground">
                                 <Link href="/dashboard">Home</Link>
                             </Button>
                         </div>
@@ -606,7 +620,7 @@ function PlayerAvatar({ name, avatarPath }: { name: string; avatarPath: string |
     return avatarPath ? (
         <img src={avatarPath} alt={name} className="h-9 w-9 rounded-full object-cover" />
     ) : (
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-game-primary/25 text-sm font-bold text-white uppercase">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-game-primary/25 text-sm font-bold text-foreground uppercase">
             {name.charAt(0)}
         </div>
     );
@@ -614,8 +628,8 @@ function PlayerAvatar({ name, avatarPath }: { name: string; avatarPath: string |
 
 function MiniScoreboard({ scoreboard, myId, startRank = 1 }: { scoreboard: ScoreRow[]; myId: number; startRank?: number }) {
     return (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-            <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-widest text-white/40">Standings</p>
+        <div className="rounded-2xl border border-foreground/10 bg-foreground/5 p-3">
+            <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-widest text-foreground/40">Standings</p>
             <div className="space-y-1">
                 {scoreboard.map((row, i) => (
                     <div
@@ -625,11 +639,11 @@ function MiniScoreboard({ scoreboard, myId, startRank = 1 }: { scoreboard: Score
                             row.user_id === myId ? 'bg-game-primary/15' : '',
                         )}
                     >
-                        <span className="w-5 text-xs font-bold text-white/40">#{startRank + i}</span>
-                        <span className={cn('flex-1 truncate font-medium', row.user_id === myId ? 'text-game-lime' : 'text-white')}>
+                        <span className="w-5 text-xs font-bold text-foreground/40">#{startRank + i}</span>
+                        <span className={cn('flex-1 truncate font-medium', row.user_id === myId ? 'text-game-lime' : 'text-foreground')}>
                             {row.user_id === myId ? 'You' : row.name}
                         </span>
-                        <span className="font-display font-bold tabular-nums text-white">{row.score.toLocaleString()}</span>
+                        <span className="font-display font-bold tabular-nums text-foreground">{row.score.toLocaleString()}</span>
                     </div>
                 ))}
             </div>
@@ -640,5 +654,5 @@ function MiniScoreboard({ scoreboard, myId, startRank = 1 }: { scoreboard: Score
 function FinalScore({ value }: { value: number }) {
     const display = useCountUp(value, 1000);
 
-    return <span className="font-display text-lg font-extrabold tabular-nums text-white">{display.toLocaleString()}</span>;
+    return <span className="font-display text-lg font-extrabold tabular-nums text-foreground">{display.toLocaleString()}</span>;
 }

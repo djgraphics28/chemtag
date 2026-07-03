@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { Crown, Medal, Trophy } from 'lucide-react';
-import type { Level } from '@/types/game';
+import type { Topic } from '@/types/game';
 
 interface LeaderboardPlayer {
     user: { id: number; name: string; username: string; avatar_path: string | null } | null;
@@ -10,8 +10,8 @@ interface LeaderboardPlayer {
 interface LeaderboardProps {
     topPlayers: LeaderboardPlayer[];
     userRank: number | null;
-    levels: Pick<Level, 'id' | 'name' | 'order'>[];
-    selectedLevelId: number | null;
+    topics: Pick<Topic, 'id' | 'name' | 'order'>[];
+    selectedTopicId: number | null;
 }
 
 const rankIcon = [
@@ -20,9 +20,9 @@ const rankIcon = [
     <Medal key={3} size={16} className="text-amber-600" />,
 ];
 
-export default function Leaderboard({ topPlayers, userRank, levels, selectedLevelId }: LeaderboardProps) {
-    function handleLevelChange(levelId: string) {
-        router.get('/game/leaderboard', levelId ? { level_id: levelId } : {}, { preserveScroll: true });
+export default function Leaderboard({ topPlayers, userRank, topics, selectedTopicId }: LeaderboardProps) {
+    function handleTopicChange(topicId: string) {
+        router.get('/game/leaderboard', topicId ? { topic_id: topicId } : {}, { preserveScroll: true });
     }
 
     return (
@@ -42,29 +42,29 @@ export default function Leaderboard({ topPlayers, userRank, levels, selectedLeve
                     <Trophy size={28} className="text-primary" />
                 </div>
 
-                {/* Level filter */}
+                {/* Topic filter */}
                 <div className="flex gap-2 overflow-x-auto pb-1">
                     <button
-                        onClick={() => handleLevelChange('')}
+                        onClick={() => handleTopicChange('')}
                         className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
-                            !selectedLevelId
+                            !selectedTopicId
                                 ? 'bg-primary text-primary-foreground'
                                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
                         }`}
                     >
-                        All Levels
+                        All Topics
                     </button>
-                    {levels.map((level) => (
+                    {topics.map((topic) => (
                         <button
-                            key={level.id}
-                            onClick={() => handleLevelChange(String(level.id))}
+                            key={topic.id}
+                            onClick={() => handleTopicChange(String(topic.id))}
                             className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
-                                selectedLevelId === level.id
+                                selectedTopicId === topic.id
                                     ? 'bg-primary text-primary-foreground'
                                     : 'bg-muted text-muted-foreground hover:bg-muted/80'
                             }`}
                         >
-                            {level.name}
+                            {topic.name}
                         </button>
                     ))}
                 </div>

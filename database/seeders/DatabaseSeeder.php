@@ -15,8 +15,9 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             UserSeeder::class,
             GameModeSeeder::class,
-            LevelSeeder::class,
+            TopicSeeder::class,
             ChemTagSeeder::class,
+            DemoQuestionSeeder::class,
         ]);
     }
 }

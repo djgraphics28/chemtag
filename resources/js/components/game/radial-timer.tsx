@@ -38,7 +38,7 @@ export function RadialTimer({ secondsLeft, total, size = 72, strokeWidth = 6 }: 
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={strokeWidth}
-                    className="text-white/10"
+                    className="text-foreground/10"
                 />
                 <circle
                     cx={size / 2}

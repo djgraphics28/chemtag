@@ -96,10 +96,13 @@ export default function Play({ session: initialSession, question, choices, progr
             }
 
             if (data.session_status === 'completed') {
-                soundsRef.current.playLevelComplete();
+                soundsRef.current.playTopicComplete();
             } else if (data.session_status === 'failed') {
                 soundsRef.current.playGameOver();
             }
+
+            const hasFeedback = Object.keys(data.choice_feedback ?? {}).length > 0;
+            const readingTime = hasFeedback ? 4000 : 1600;
 
             setTimeout(() => {
                 if (data.session_status !== 'in_progress') {
@@ -107,7 +110,7 @@ export default function Play({ session: initialSession, question, choices, progr
                 } else {
                     router.visit(`/game/sessions/${session.id}/play`, { preserveScroll: false });
                 }
-            }, 1600);
+            }, readingTime);
         } catch {
             setIsSubmitting(false);
             start();
@@ -162,7 +165,7 @@ export default function Play({ session: initialSession, question, choices, progr
                     initial={{ opacity: 0, y: -14, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{ duration: 0.3 }}
-                    className="flex flex-col items-center gap-4 rounded-3xl border border-white/10 bg-white/5 px-6 py-8"
+                    className="flex flex-col items-center gap-4 rounded-3xl border border-foreground/10 bg-foreground/5 px-6 py-8"
                 >
                     {question.prompt_image_path && (
                         <img
@@ -172,11 +175,11 @@ export default function Play({ session: initialSession, question, choices, progr
                         />
                     )}
                     {question.prompt_text && (
-                        <p className="text-center text-lg font-semibold leading-snug text-white">
+                        <p className="text-center text-lg font-semibold leading-snug text-foreground">
                             {question.prompt_text}
                         </p>
                     )}
-                    <div className="text-xs font-medium text-white/40">
+                    <div className="text-xs font-medium text-foreground/40">
                         {question.points} pts · {session.game_mode.title}
                     </div>
                 </motion.div>

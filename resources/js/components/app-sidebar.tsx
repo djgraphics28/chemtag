@@ -18,7 +18,7 @@ import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
     { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
-    { title: 'Level Map', href: '/game/levels', icon: Map },
+    { title: 'Topics', href: '/game/topics', icon: Map },
     { title: 'Battle Arena', href: '/battle', icon: Swords },
     { title: 'Leaderboard', href: '/game/leaderboard', icon: Trophy },
 ];

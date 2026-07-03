@@ -11,23 +11,24 @@ class GameSessionService
 {
     public function getNextQuestion(GameSession $session): ?Question
     {
-        $answeredIds = $session->answers()->pluck('question_id');
+        $answeredIds = $session->answers()->pluck('question_id')->all();
 
-        return Question::where('game_mode_id', $session->game_mode_id)
-            ->where('level_id', $session->level_id)
-            ->where('is_active', true)
-            ->whereNotIn('id', $answeredIds)
-            ->orderBy('id')
-            ->with(['choices' => fn ($q) => $q->orderBy('sort_order'), 'gameMode'])
-            ->first();
+        // Sessions carry their own randomly drawn question order
+        $nextId = collect($session->question_ids ?? [])
+            ->first(fn (int $id) => ! in_array($id, $answeredIds));
+
+        if ($nextId === null) {
+            return null;
+        }
+
+        return Question::where('is_active', true)
+            ->with(['choices', 'gameMode'])
+            ->find($nextId);
     }
 
     public function getTotalQuestions(GameSession $session): int
     {
-        return Question::where('game_mode_id', $session->game_mode_id)
-            ->where('level_id', $session->level_id)
-            ->where('is_active', true)
-            ->count();
+        return count($session->question_ids ?? []);
     }
 
     /**
@@ -45,7 +46,8 @@ class GameSessionService
 
             abort_if(
                 $question->game_mode_id !== $session->game_mode_id
-                    || $question->level_id !== $session->level_id,
+                    || $question->topic_id !== $session->topic_id
+                    || ! in_array($question->id, $session->question_ids ?? [], true),
                 403,
                 'Choice does not belong to this session.'
             );
@@ -111,6 +113,9 @@ class GameSessionService
             'explanation' => $question->explanation,
             'points_earned' => $pointsEarned,
             'correct_choice_id' => $correctChoiceId,
+            'choice_feedback' => $question->choices
+                ->filter(fn (QuestionChoice $c) => $c->feedback_text !== null && $c->feedback_text !== '')
+                ->mapWithKeys(fn (QuestionChoice $c) => [$c->id => $c->feedback_text]),
             'score' => $session->score,
             'lives_remaining' => $session->lives_remaining,
             'streak_count' => $session->streak_count,
@@ -136,11 +141,10 @@ class GameSessionService
                 'time_limit_seconds' => $question->time_limit_seconds,
                 'points' => $question->points,
             ],
-            'choices' => $question->choices->map(fn (QuestionChoice $c) => [
+            'choices' => $question->choices->shuffle()->map(fn (QuestionChoice $c) => [
                 'id' => $c->id,
                 'choice_text' => $c->choice_text,
                 'choice_image_path' => $c->choice_image_path,
-                'sort_order' => $c->sort_order,
             ])->values(),
             'progress' => [
                 'answered' => $answered,

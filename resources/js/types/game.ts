@@ -1,7 +1,5 @@
 export type GameModeCode = 'structure_to_name' | 'name_to_structure' | 'pattern_clue';
 
-export type DifficultyLevel = 'easy' | 'medium' | 'hard' | 'expert';
-
 export type SessionStatus = 'in_progress' | 'completed' | 'failed';
 
 export interface GameMode {
@@ -12,21 +10,18 @@ export interface GameMode {
     icon?: string;
 }
 
-export interface Level {
+export interface Topic {
     id: number;
     name: string;
     order: number;
-    difficulty: DifficultyLevel;
-    unlock_score_threshold: number;
+    questions_per_game: number;
     best_score?: number;
-    is_unlocked?: boolean;
 }
 
 export interface ChoiceData {
     id: number;
     choice_text: string | null;
     choice_image_path: string | null;
-    sort_order: number;
 }
 
 export interface QuestionData {
@@ -45,7 +40,7 @@ export interface SessionState {
     streak_count: number;
     status: SessionStatus;
     game_mode: Pick<GameMode, 'id' | 'code' | 'title'>;
-    level: Pick<Level, 'id' | 'name' | 'order'>;
+    topic: Pick<Topic, 'id' | 'name' | 'order'>;
 }
 
 export interface Progress {
@@ -57,6 +52,7 @@ export interface AnswerResult {
     is_correct: boolean;
     timed_out: boolean;
     explanation: string | null;
+    choice_feedback: Record<number, string>;
     points_earned: number;
     correct_choice_id: number;
     score: number;
@@ -71,7 +67,7 @@ export interface RecentSession {
     score: number;
     status: SessionStatus;
     game_mode: Pick<GameMode, 'code' | 'title'> | null;
-    level: Pick<Level, 'name'> | null;
+    topic: Pick<Topic, 'name'> | null;
     ended_at: string | null;
 }
 

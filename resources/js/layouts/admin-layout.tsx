@@ -34,7 +34,7 @@ const nav = [
     { href: '/admin/roles', label: 'Roles', icon: Shield },
     { href: '/admin/questions', label: 'Questions', icon: HelpCircle },
     { href: '/admin/game-modes', label: 'Game Modes', icon: Gamepad2 },
-    { href: '/admin/levels', label: 'Levels', icon: Layers },
+    { href: '/admin/topics', label: 'Topics', icon: Layers },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 

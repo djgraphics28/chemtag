@@ -47,7 +47,7 @@ export function GameHud({ session, progress, secondsLeft, timeLimitSeconds, mute
                             key={session.score}
                             animate={session.score > 0 ? { scale: [1, 1.25, 1] } : undefined}
                             transition={{ duration: 0.3 }}
-                            className="text-sm font-bold tabular-nums text-white"
+                            className="text-sm font-bold tabular-nums text-foreground"
                         >
                             {displayScore.toLocaleString()}
                         </motion.span>
@@ -56,7 +56,7 @@ export function GameHud({ session, progress, secondsLeft, timeLimitSeconds, mute
                                 type="button"
                                 onClick={onToggleMuted}
                                 aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
-                                className="text-white/40 transition-colors hover:text-white"
+                                className="text-foreground/40 transition-colors hover:text-foreground"
                             >
                                 {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                             </button>

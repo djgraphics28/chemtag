@@ -5,9 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Level extends Model
+class Topic extends Model
 {
-    protected $fillable = ['name', 'order', 'difficulty', 'unlock_score_threshold'];
+    protected $fillable = ['name', 'order', 'questions_per_game'];
 
     /** @return HasMany<Question, $this> */
     public function questions(): HasMany

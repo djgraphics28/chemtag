@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\GameMode;
 use App\Models\GameSession;
-use App\Models\Level;
+use App\Models\Question;
+use App\Models\Topic;
 use App\Services\GameSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -16,28 +17,26 @@ class GameController extends Controller
 {
     public function __construct(private readonly GameSessionService $service) {}
 
-    public function levels(Request $request): Response
+    public function topics(Request $request): Response
     {
         $user = $request->user();
         $modes = GameMode::where('is_active', true)->get(['id', 'code', 'title', 'description', 'icon']);
-        $levels = Level::orderBy('order')->get();
+        $topics = Topic::orderBy('order')->get();
 
         $bestScores = GameSession::where('user_id', $user->id)
             ->whereIn('status', ['completed', 'failed'])
-            ->selectRaw('level_id, MAX(score) as best_score')
-            ->groupBy('level_id')
-            ->pluck('best_score', 'level_id');
+            ->selectRaw('topic_id, MAX(score) as best_score')
+            ->groupBy('topic_id')
+            ->pluck('best_score', 'topic_id');
 
-        return Inertia::render('game/level-map', [
+        return Inertia::render('game/topics', [
             'modes' => $modes,
-            'levels' => $levels->map(fn (Level $level) => [
-                'id' => $level->id,
-                'name' => $level->name,
-                'order' => $level->order,
-                'difficulty' => $level->difficulty,
-                'unlock_score_threshold' => $level->unlock_score_threshold,
-                'best_score' => $bestScores->get($level->id, 0),
-                'is_unlocked' => $user->xp_total >= $level->unlock_score_threshold,
+            'topics' => $topics->map(fn (Topic $topic) => [
+                'id' => $topic->id,
+                'name' => $topic->name,
+                'order' => $topic->order,
+                'questions_per_game' => $topic->questions_per_game,
+                'best_score' => $bestScores->get($topic->id, 0),
             ]),
             'user_xp' => $user->xp_total,
         ]);
@@ -47,21 +46,27 @@ class GameController extends Controller
     {
         $validated = $request->validate([
             'game_mode_id' => ['required', 'exists:game_modes,id'],
-            'level_id' => ['required', 'exists:levels,id'],
+            'topic_id' => ['required', 'exists:topics,id'],
         ]);
 
-        $level = Level::findOrFail($validated['level_id']);
+        $topic = Topic::findOrFail($validated['topic_id']);
 
-        abort_if(
-            $request->user()->xp_total < $level->unlock_score_threshold,
-            403,
-            'Level not yet unlocked.'
-        );
+        // Draw a fresh random question set for every play
+        $questionIds = Question::where('game_mode_id', $validated['game_mode_id'])
+            ->where('topic_id', $validated['topic_id'])
+            ->where('is_active', true)
+            ->inRandomOrder()
+            ->limit($topic->questions_per_game)
+            ->pluck('id')
+            ->all();
+
+        abort_if(count($questionIds) === 0, 422, 'No questions available for this mode and topic yet.');
 
         $session = GameSession::create([
             'user_id' => $request->user()->id,
             'game_mode_id' => $validated['game_mode_id'],
-            'level_id' => $validated['level_id'],
+            'topic_id' => $validated['topic_id'],
+            'question_ids' => $questionIds,
             'score' => 0,
             'lives_remaining' => 3,
             'streak_count' => 0,
@@ -80,7 +85,7 @@ class GameController extends Controller
             return redirect()->route('game.sessions.results', $session);
         }
 
-        $session->load('gameMode', 'level');
+        $session->load('gameMode', 'topic');
         $nextQuestion = $this->service->getNextQuestion($session);
 
         if (! $nextQuestion) {
@@ -97,7 +102,7 @@ class GameController extends Controller
                 'streak_count' => $session->streak_count,
                 'status' => $session->status,
                 'game_mode' => $session->gameMode->only(['id', 'code', 'title']),
-                'level' => $session->level->only(['id', 'name', 'order']),
+                'topic' => $session->topic->only(['id', 'name', 'order']),
             ],
             ...$this->service->formatQuestion($nextQuestion, $session),
         ]);
@@ -121,7 +126,7 @@ class GameController extends Controller
     {
         abort_if($session->user_id !== $request->user()->id, 403);
 
-        $session->load('gameMode', 'level', 'answers');
+        $session->load('gameMode', 'topic', 'answers');
 
         $total = $this->service->getTotalQuestions($session);
         $correctCount = $session->answers->where('is_correct', true)->count();
@@ -142,7 +147,7 @@ class GameController extends Controller
                 'score' => $session->score,
                 'status' => $session->status,
                 'game_mode' => $session->gameMode->only(['id', 'code', 'title']),
-                'level' => $session->level->only(['id', 'name', 'order']),
+                'topic' => $session->topic->only(['id', 'name', 'order']),
             ],
             'stats' => [
                 'correct_count' => $correctCount,
@@ -156,8 +161,8 @@ class GameController extends Controller
 
     public function leaderboard(Request $request): Response
     {
-        $levels = Level::orderBy('order')->get(['id', 'name', 'order']);
-        $levelId = $request->integer('level_id', 0);
+        $topics = Topic::orderBy('order')->get(['id', 'name', 'order']);
+        $topicId = $request->integer('topic_id', 0);
 
         $query = GameSession::where('status', 'completed')
             ->with('user:id,name,username,avatar_path')
@@ -166,8 +171,8 @@ class GameController extends Controller
             ->orderByDesc('best_score')
             ->limit(10);
 
-        if ($levelId) {
-            $query->where('level_id', $levelId);
+        if ($topicId) {
+            $query->where('topic_id', $topicId);
         }
 
         $topPlayers = $query->get()->map(fn ($row) => [
@@ -177,7 +182,7 @@ class GameController extends Controller
 
         $user = $request->user();
         $allRankedIds = GameSession::where('status', 'completed')
-            ->when($levelId, fn ($q) => $q->where('level_id', $levelId))
+            ->when($topicId, fn ($q) => $q->where('topic_id', $topicId))
             ->selectRaw('user_id, MAX(score) as best_score')
             ->groupBy('user_id')
             ->orderByDesc('best_score')
@@ -189,8 +194,8 @@ class GameController extends Controller
         return Inertia::render('game/leaderboard', [
             'topPlayers' => $topPlayers,
             'userRank' => $userRank,
-            'levels' => $levels,
-            'selectedLevelId' => $levelId ?: null,
+            'topics' => $topics,
+            'selectedTopicId' => $topicId ?: null,
         ]);
     }
 }

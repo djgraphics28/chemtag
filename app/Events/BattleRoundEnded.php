@@ -17,14 +17,16 @@ class BattleRoundEnded implements ShouldBroadcastNow
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     /**
-     * @param array<int, array<string, mixed>> $scoreboard
-     * @param array<int, array<string, mixed>> $roundResults
+     * @param  array<int, string>  $choiceFeedback  keyed by choice id
+     * @param  array<int, array<string, mixed>>  $scoreboard
+     * @param  array<int, array<string, mixed>>  $roundResults
      */
     public function __construct(
         public string $roomCode,
         public int $roundNumber,
         public int $correctChoiceId,
         public ?string $explanation,
+        public array $choiceFeedback,
         public array $roundResults,
         public array $scoreboard,
         public ?int $nextRoundNumber,

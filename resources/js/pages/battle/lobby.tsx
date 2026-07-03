@@ -1,34 +1,39 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Plus, Swords, Users } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useFlashToast } from '@/hooks/use-flash-toast';
 
 interface LobbyProps {
     open_rooms: {
         code: string;
         host: { name: string; username: string };
         game_mode: { code: string; title: string };
-        level: { name: string };
+        topic: { name: string };
         players_count: number;
         max_players: number;
     }[];
     my_room_code: string | null;
     game_modes: { id: number; code: string; title: string }[];
-    levels: { id: number; name: string; order: number; difficulty: string }[];
+    topics: { id: number; name: string; order: number; questions_per_game: number }[];
 }
 
-export default function BattleLobby({ open_rooms, my_room_code, game_modes, levels }: LobbyProps) {
-    useFlashToast();
+export default function BattleLobby({ open_rooms, my_room_code, game_modes, topics }: LobbyProps) {
+    const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
+
+    useEffect(() => {
+        if (flash?.success) toast.success(flash.success);
+        if (flash?.error) toast.error(flash.error);
+    }, [flash]);
 
     const [showCreate, setShowCreate] = useState(false);
 
     const createForm = useForm({
         game_mode_id: game_modes[0]?.id ?? 0,
-        level_id: levels[0]?.id ?? 0,
+        topic_id: topics[0]?.id ?? 0,
     });
 
     const joinForm = useForm({ code: '' });
@@ -79,7 +84,7 @@ export default function BattleLobby({ open_rooms, my_room_code, game_modes, leve
                     {/* Create room */}
                     <div className="rounded-3xl border border-border bg-card p-6">
                         <h2 className="mb-1 font-display text-lg font-bold text-foreground">Create a Room</h2>
-                        <p className="mb-4 text-xs text-muted-foreground">Pick a mode and level, then invite friends with the room code</p>
+                        <p className="mb-4 text-xs text-muted-foreground">Pick a mode and topic, then invite friends with the room code</p>
 
                         {showCreate ? (
                             <form onSubmit={handleCreate} className="space-y-3">
@@ -97,15 +102,15 @@ export default function BattleLobby({ open_rooms, my_room_code, game_modes, leve
                                     </select>
                                 </div>
                                 <div className="grid gap-1.5">
-                                    <Label htmlFor="battle-level">Level</Label>
+                                    <Label htmlFor="battle-topic">Topic</Label>
                                     <select
-                                        id="battle-level"
-                                        value={createForm.data.level_id}
-                                        onChange={(e) => createForm.setData('level_id', Number(e.target.value))}
+                                        id="battle-topic"
+                                        value={createForm.data.topic_id}
+                                        onChange={(e) => createForm.setData('topic_id', Number(e.target.value))}
                                         className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
                                     >
-                                        {levels.map((l) => (
-                                            <option key={l.id} value={l.id}>{l.name} · {l.difficulty}</option>
+                                        {topics.map((l) => (
+                                            <option key={l.id} value={l.id}>{l.name} · {l.questions_per_game} Qs</option>
                                         ))}
                                     </select>
                                 </div>
@@ -172,7 +177,7 @@ export default function BattleLobby({ open_rooms, my_room_code, game_modes, leve
                                     </span>
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate text-sm font-medium text-foreground">
-                                            {room.game_mode.title} · {room.level.name}
+                                            {room.game_mode.title} · {room.topic.name}
                                         </p>
                                         <p className="text-xs text-muted-foreground">Hosted by {room.host.name}</p>
                                     </div>

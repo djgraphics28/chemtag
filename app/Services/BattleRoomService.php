@@ -20,16 +20,14 @@ class BattleRoomService
 {
     public const COUNTDOWN_SECONDS = 4;
 
-    public const ROUNDS_PER_BATTLE = 5;
-
-    public function createRoom(User $host, int $gameModeId, int $levelId): GameRoom
+    public function createRoom(User $host, int $gameModeId, int $topicId): GameRoom
     {
-        return DB::transaction(function () use ($host, $gameModeId, $levelId): GameRoom {
+        return DB::transaction(function () use ($host, $gameModeId, $topicId): GameRoom {
             $room = GameRoom::create([
                 'code' => $this->generateUniqueCode(),
                 'host_id' => $host->id,
                 'game_mode_id' => $gameModeId,
-                'level_id' => $levelId,
+                'topic_id' => $topicId,
                 'status' => 'waiting',
                 'max_players' => 30,
             ]);
@@ -101,14 +99,16 @@ class BattleRoomService
             'All players must be ready.'
         );
 
+        $room->load('topic');
+
         $questions = Question::where('game_mode_id', $room->game_mode_id)
-            ->where('level_id', $room->level_id)
+            ->where('topic_id', $room->topic_id)
             ->where('is_active', true)
             ->inRandomOrder()
-            ->limit(self::ROUNDS_PER_BATTLE)
+            ->limit($room->topic->questions_per_game)
             ->get();
 
-        abort_if($questions->count() < 2, 422, 'Not enough questions available for this mode and level.');
+        abort_if($questions->count() < 2, 422, 'Not enough questions available for this mode and topic.');
 
         DB::transaction(function () use ($room, $questions): void {
             $firstStartsAt = now()->addSeconds(self::COUNTDOWN_SECONDS);
@@ -153,7 +153,7 @@ class BattleRoomService
      */
     public function roundPayload(GameRoomRound $round, User $user): array
     {
-        $round->load(['question.choices' => fn ($q) => $q->orderBy('sort_order')]);
+        $round->load('question.choices');
         $question = $round->question;
 
         $hasAnswered = $round->answers()->where('user_id', $user->id)->exists();
@@ -173,11 +173,10 @@ class BattleRoomService
                 'points' => $question->points,
                 'time_limit_seconds' => $question->time_limit_seconds,
             ],
-            'choices' => $question->choices->map(fn (QuestionChoice $c) => [
+            'choices' => $question->choices->shuffle()->map(fn (QuestionChoice $c) => [
                 'id' => $c->id,
                 'choice_text' => $c->choice_text,
                 'choice_image_path' => $c->choice_image_path,
-                'sort_order' => $c->sort_order,
             ])->values(),
         ];
     }
@@ -319,11 +318,17 @@ class BattleRoomService
             $room->update(['status' => 'finished']);
         }
 
+        $choiceFeedback = $round->question->choices
+            ->filter(fn ($c) => $c->feedback_text !== null && $c->feedback_text !== '')
+            ->mapWithKeys(fn ($c) => [$c->id => $c->feedback_text])
+            ->all();
+
         broadcast(new BattleRoundEnded(
             $room->code,
             $round->round_number,
             $correctChoiceId,
             $round->question->explanation,
+            $choiceFeedback,
             $roundResults,
             $this->scoreboard($room),
             $nextRound?->round_number,

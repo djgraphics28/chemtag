@@ -21,7 +21,7 @@ export interface AdminQuestion {
     points: number;
     is_active: boolean;
     game_mode: { id: number; code: string; title: string } | null;
-    level: { id: number; name: string } | null;
+    topic: { id: number; name: string } | null;
     choices_count: number;
 }
 
@@ -35,12 +35,11 @@ export interface AdminGameMode {
     questions_count: number;
 }
 
-export interface AdminLevel {
+export interface AdminTopic {
     id: number;
     name: string;
     order: number;
-    difficulty: 'easy' | 'medium' | 'hard' | 'expert';
-    unlock_score_threshold: number;
+    questions_per_game: number;
     questions_count: number;
 }
 

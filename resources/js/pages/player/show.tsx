@@ -66,7 +66,7 @@ export default function PlayerShow({ player, stats, recent_sessions }: PlayerSho
                                     />
                                     <div className="flex-1 min-w-0">
                                         <p className="truncate text-sm font-medium text-foreground">
-                                            {s.game_mode?.title ?? '—'} · {s.level?.name ?? '—'}
+                                            {s.game_mode?.title ?? '—'} · {s.topic?.name ?? '—'}
                                         </p>
                                         <p className="text-xs text-muted-foreground">{s.ended_at}</p>
                                     </div>

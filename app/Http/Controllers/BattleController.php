@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\GameMode;
 use App\Models\GameRoom;
-use App\Models\Level;
+use App\Models\Topic;
 use App\Services\BattleRoomService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -19,7 +19,7 @@ class BattleController extends Controller
     public function lobby(Request $request): Response
     {
         $openRooms = GameRoom::where('status', 'waiting')
-            ->with(['host:id,name,username', 'gameMode:id,code,title', 'level:id,name'])
+            ->with(['host:id,name,username', 'gameMode:id,code,title', 'topic:id,name'])
             ->withCount('players')
             ->orderByDesc('created_at')
             ->limit(20)
@@ -28,7 +28,7 @@ class BattleController extends Controller
                 'code' => $room->code,
                 'host' => $room->host->only(['name', 'username']),
                 'game_mode' => $room->gameMode->only(['code', 'title']),
-                'level' => $room->level->only(['name']),
+                'topic' => $room->topic->only(['name']),
                 'players_count' => $room->players_count,
                 'max_players' => $room->max_players,
             ]);
@@ -41,7 +41,7 @@ class BattleController extends Controller
             'open_rooms' => $openRooms,
             'my_room_code' => $myRoom?->code,
             'game_modes' => GameMode::where('is_active', true)->get(['id', 'code', 'title']),
-            'levels' => Level::orderBy('order')->get(['id', 'name', 'order', 'difficulty']),
+            'topics' => Topic::orderBy('order')->get(['id', 'name', 'order', 'questions_per_game']),
         ]);
     }
 
@@ -49,13 +49,13 @@ class BattleController extends Controller
     {
         $validated = $request->validate([
             'game_mode_id' => ['required', 'exists:game_modes,id'],
-            'level_id' => ['required', 'exists:levels,id'],
+            'topic_id' => ['required', 'exists:topics,id'],
         ]);
 
         $room = $this->service->createRoom(
             $request->user(),
             (int) $validated['game_mode_id'],
-            (int) $validated['level_id'],
+            (int) $validated['topic_id'],
         );
 
         return redirect()->route('battle.rooms.show', $room);
@@ -92,7 +92,7 @@ class BattleController extends Controller
             $this->service->join($room, $user);
         }
 
-        $room->load('gameMode:id,code,title', 'level:id,name');
+        $room->load('gameMode:id,code,title', 'topic:id,name');
 
         $activeRound = $room->status === 'in_progress' ? $this->service->currentRound($room) : null;
 
@@ -103,7 +103,7 @@ class BattleController extends Controller
                 'host_id' => $room->host_id,
                 'max_players' => $room->max_players,
                 'game_mode' => $room->gameMode->only(['code', 'title']),
-                'level' => $room->level->only(['name']),
+                'topic' => $room->topic->only(['name']),
                 'total_rounds' => $room->rounds()->count(),
             ],
             'players' => $this->service->playersPayload($room),

@@ -3,9 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\GameMode;
-use App\Models\Level;
 use App\Models\Question;
 use App\Models\QuestionChoice;
+use App\Models\Topic;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -14,15 +14,15 @@ class ChemTagSeeder extends Seeder
     public function run(): void
     {
         $admin = User::where('username', 'admin')->first();
-        $level = Level::where('order', 1)->first();
+        $topic = Topic::where('order', 1)->first();
 
-        $this->seedStructureToName($admin->id, $level->id);
-        $this->seedNameToStructure($admin->id, $level->id);
-        $this->seedPatternClue($admin->id, $level->id);
+        $this->seedStructureToName($admin->id, $topic->id);
+        $this->seedNameToStructure($admin->id, $topic->id);
+        $this->seedPatternClue($admin->id, $topic->id);
     }
 
     /** Round 1: show structure image → pick IUPAC name */
-    private function seedStructureToName(int $createdBy, int $levelId): void
+    private function seedStructureToName(int $createdBy, int $topicId): void
     {
         $mode = GameMode::where('code', 'structure_to_name')->first();
 
@@ -129,11 +129,11 @@ class ChemTagSeeder extends Seeder
             ],
         ];
 
-        $this->insertQuestions($mode->id, $levelId, $createdBy, $questions, 'image');
+        $this->insertQuestions($mode->id, $topicId, $createdBy, $questions, 'image');
     }
 
     /** Round 2: show IUPAC name → pick correct structure image */
-    private function seedNameToStructure(int $createdBy, int $levelId): void
+    private function seedNameToStructure(int $createdBy, int $topicId): void
     {
         $mode = GameMode::where('code', 'name_to_structure')->first();
 
@@ -240,11 +240,11 @@ class ChemTagSeeder extends Seeder
             ],
         ];
 
-        $this->insertQuestions($mode->id, $levelId, $createdBy, $questions, 'text');
+        $this->insertQuestions($mode->id, $topicId, $createdBy, $questions, 'text');
     }
 
     /** Round 3: 4 images share a common feature → identify it */
-    private function seedPatternClue(int $createdBy, int $levelId): void
+    private function seedPatternClue(int $createdBy, int $topicId): void
     {
         $mode = GameMode::where('code', 'pattern_clue')->first();
 
@@ -361,7 +361,7 @@ class ChemTagSeeder extends Seeder
             ],
         ];
 
-        $this->insertQuestions($mode->id, $levelId, $createdBy, $questions, 'mixed');
+        $this->insertQuestions($mode->id, $topicId, $createdBy, $questions, 'mixed');
     }
 
     /**
@@ -369,7 +369,7 @@ class ChemTagSeeder extends Seeder
      */
     private function insertQuestions(
         int $modeId,
-        int $levelId,
+        int $topicId,
         int $createdBy,
         array $questions,
         string $choiceType
@@ -377,7 +377,7 @@ class ChemTagSeeder extends Seeder
         foreach ($questions as $qData) {
             $question = Question::create([
                 'game_mode_id' => $modeId,
-                'level_id' => $levelId,
+                'topic_id' => $topicId,
                 'prompt_text' => $qData['prompt_text'] ?? null,
                 'prompt_image_path' => $qData['prompt_image_path'] ?? null,
                 'explanation' => $qData['explanation'],

@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class GameRoom extends Model
 {
     protected $fillable = [
-        'code', 'host_id', 'game_mode_id', 'level_id', 'status', 'max_players',
+        'code', 'host_id', 'game_mode_id', 'topic_id', 'status', 'max_players',
     ];
 
     /** @return BelongsTo<User, $this> */
@@ -27,10 +27,10 @@ class GameRoom extends Model
         return $this->belongsTo(GameMode::class);
     }
 
-    /** @return BelongsTo<Level, $this> */
-    public function level(): BelongsTo
+    /** @return BelongsTo<Topic, $this> */
+    public function topic(): BelongsTo
     {
-        return $this->belongsTo(Level::class);
+        return $this->belongsTo(Topic::class);
     }
 
     /** @return HasMany<GameRoomPlayer, $this> */

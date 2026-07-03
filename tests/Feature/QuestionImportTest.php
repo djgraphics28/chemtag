@@ -1,8 +1,8 @@
 <?php
 
 use App\Models\GameMode;
-use App\Models\Level;
 use App\Models\Question;
+use App\Models\Topic;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use OpenSpout\Common\Entity\Row;
@@ -21,9 +21,9 @@ beforeEach(function (): void {
         ['code' => 'structure_to_name'],
         ['title' => 'Name It Right', 'description' => '', 'icon' => null, 'is_active' => true]
     );
-    $this->level = Level::firstOrCreate(
+    $this->topic = Topic::firstOrCreate(
         ['name' => 'Alkanes Basics'],
-        ['order' => 1, 'difficulty' => 'easy', 'unlock_score_threshold' => 0]
+        ['order' => 1, 'questions_per_game' => 5]
     );
 });
 
@@ -58,7 +58,7 @@ it('imports valid questions from the XLSX template format', function (): void {
     $writer->addRow(Row::fromValues(['These instructions should be ignored on import.']));
     $writer->addNewSheetAndMakeItCurrent()->setName('Questions');
     $writer->addRow(Row::fromValues([
-        'game_mode_code', 'level_name', 'prompt_text', 'explanation', 'points', 'time_limit_seconds',
+        'game_mode_code', 'topic_name', 'prompt_text', 'explanation', 'points', 'time_limit_seconds',
         'is_active', 'choice_1', 'choice_2', 'choice_3', 'choice_4', 'choice_5', 'choice_6', 'correct_choice',
     ]));
     $writer->addRow(Row::fromValues([
@@ -83,11 +83,11 @@ it('imports valid questions from the XLSX template format', function (): void {
     unlink($path);
 });
 
-it('imports valid questions from CSV', function (): void {
+it('imports valid questions from CSV with per-choice feedback', function (): void {
     $csv = implode("\n", [
         '# comment row skipped',
-        'game_mode_code,level_name,prompt_text,explanation,points,time_limit_seconds,is_active,choice_1,choice_2,choice_3,choice_4,choice_5,choice_6,correct_choice',
-        'structure_to_name,Alkanes Basics,What is CH4?,Methane,100,20,1,Methane,Ethane,Propane,,,,1',
+        'game_mode_code,topic_name,prompt_text,explanation,points,time_limit_seconds,is_active,choice_1,choice_2,choice_3,choice_4,choice_5,choice_6,correct_choice,feedback_1,feedback_2,feedback_3,feedback_4,feedback_5,feedback_6',
+        'structure_to_name,Alkanes Basics,What is CH4?,Methane,100,20,1,Methane,Ethane,Propane,,,,1,Correct! One carbon = methane.,Incorrect. Ethane has 2 carbons.,Incorrect. Propane has 3 carbons.,,,',
     ]);
 
     $file = UploadedFile::fake()->createWithContent('import.csv', $csv);
@@ -100,11 +100,30 @@ it('imports valid questions from CSV', function (): void {
     expect($question)->not->toBeNull();
     expect($question->choices()->count())->toBe(3);
     expect($question->choices()->where('is_correct', true)->value('choice_text'))->toBe('Methane');
+    expect($question->choices()->where('is_correct', true)->value('feedback_text'))->toBe('Correct! One carbon = methane.');
+    expect($question->choices()->where('choice_text', 'Ethane')->value('feedback_text'))->toBe('Incorrect. Ethane has 2 carbons.');
+});
+
+it('imports rows without feedback columns for backwards compatibility', function (): void {
+    $csv = implode("\n", [
+        'game_mode_code,topic_name,prompt_text,explanation,points,time_limit_seconds,is_active,choice_1,choice_2,choice_3,choice_4,choice_5,choice_6,correct_choice',
+        'structure_to_name,Alkanes Basics,Old format question?,,100,20,1,A,B,,,,,1',
+    ]);
+
+    $file = UploadedFile::fake()->createWithContent('import.csv', $csv);
+
+    actingAs($this->admin)
+        ->post('/admin/questions/import', ['file' => $file])
+        ->assertRedirect('/admin/questions');
+
+    $question = Question::where('prompt_text', 'Old format question?')->first();
+    expect($question)->not->toBeNull();
+    expect($question->choices()->whereNotNull('feedback_text')->count())->toBe(0);
 });
 
 it('skips rows with unknown game_mode_code and reports error', function (): void {
     $csv = implode("\n", [
-        'game_mode_code,level_name,prompt_text,explanation,points,time_limit_seconds,is_active,choice_1,choice_2,choice_3,choice_4,choice_5,choice_6,correct_choice',
+        'game_mode_code,topic_name,prompt_text,explanation,points,time_limit_seconds,is_active,choice_1,choice_2,choice_3,choice_4,choice_5,choice_6,correct_choice',
         'bad_code,Alkanes Basics,Some question,,100,20,1,A,B,,,,,1',
     ]);
 
@@ -118,10 +137,10 @@ it('skips rows with unknown game_mode_code and reports error', function (): void
     expect(Question::count())->toBe(0);
 });
 
-it('skips rows with unknown level_name', function (): void {
+it('skips rows with unknown topic_name', function (): void {
     $csv = implode("\n", [
-        'game_mode_code,level_name,prompt_text,explanation,points,time_limit_seconds,is_active,choice_1,choice_2,choice_3,choice_4,choice_5,choice_6,correct_choice',
-        'structure_to_name,No Such Level,Some question,,100,20,1,A,B,,,,,1',
+        'game_mode_code,topic_name,prompt_text,explanation,points,time_limit_seconds,is_active,choice_1,choice_2,choice_3,choice_4,choice_5,choice_6,correct_choice',
+        'structure_to_name,No Such Topic,Some question,,100,20,1,A,B,,,,,1',
     ]);
 
     $file = UploadedFile::fake()->createWithContent('import.csv', $csv);
@@ -136,7 +155,7 @@ it('skips rows with unknown level_name', function (): void {
 
 it('skips rows where correct_choice is out of range', function (): void {
     $csv = implode("\n", [
-        'game_mode_code,level_name,prompt_text,explanation,points,time_limit_seconds,is_active,choice_1,choice_2,choice_3,choice_4,choice_5,choice_6,correct_choice',
+        'game_mode_code,topic_name,prompt_text,explanation,points,time_limit_seconds,is_active,choice_1,choice_2,choice_3,choice_4,choice_5,choice_6,correct_choice',
         'structure_to_name,Alkanes Basics,Which one?,,100,20,1,A,B,,,,,5',
     ]);
 

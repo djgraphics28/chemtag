@@ -20,7 +20,7 @@ export function StarRating({ stars, maxStars = 3, size = 40 }: StarRatingProps) 
                     <Star
                         size={size}
                         strokeWidth={1.5}
-                        className={i < stars ? 'fill-game-primary text-game-primary' : 'text-white/20'}
+                        className={i < stars ? 'fill-game-primary text-game-primary' : 'text-foreground/20'}
                     />
                 </motion.div>
             ))}

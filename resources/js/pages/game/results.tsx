@@ -26,13 +26,13 @@ export default function Results({ session, stats }: ResultsProps) {
     function handlePlayAgain() {
         router.post('/game/sessions', {
             game_mode_id: session.game_mode.id,
-            level_id: session.level.id,
+            topic_id: session.topic.id,
         });
     }
 
     return (
         <>
-            <Head title={isCompleted ? 'Level Complete!' : 'Game Over'} />
+            <Head title={isCompleted ? 'Topic Complete!' : 'Game Over'} />
 
             <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
                 {isCompleted && <ConfettiBurst mode="rain" count={60} />}
@@ -50,13 +50,13 @@ export default function Results({ session, stats }: ResultsProps) {
                             transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
                             className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-game-primary/20"
                         >
-                            <Trophy size={40} className={isCompleted ? 'text-game-primary' : 'text-white/40'} />
+                            <Trophy size={40} className={isCompleted ? 'text-game-primary' : 'text-foreground/40'} />
                         </motion.div>
-                        <h1 className="font-display text-4xl font-bold text-white">
-                            {isCompleted ? 'Level Complete!' : 'Game Over'}
+                        <h1 className="font-display text-4xl font-bold text-foreground">
+                            {isCompleted ? 'Topic Complete!' : 'Game Over'}
                         </h1>
-                        <p className="mt-1 text-white/50">
-                            {session.level.name} · {session.game_mode.title}
+                        <p className="mt-1 text-foreground/50">
+                            {session.topic.name} · {session.game_mode.title}
                         </p>
                     </div>
 
@@ -66,7 +66,7 @@ export default function Results({ session, stats }: ResultsProps) {
                     </div>
 
                     {/* Score card */}
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-4">
+                    <div className="rounded-3xl border border-foreground/10 bg-foreground/5 p-6 space-y-4">
                         <div className="flex justify-center">
                             <XpBadge xp={stats.xp_earned} />
                         </div>
@@ -90,10 +90,10 @@ export default function Results({ session, stats }: ResultsProps) {
                             <RefreshCw size={16} className="mr-2" />
                             Play Again
                         </Button>
-                        <Button asChild variant="ghost" size="lg" className="w-full text-white/60 hover:text-white">
-                            <Link href="/game/levels">
+                        <Button asChild variant="ghost" size="lg" className="w-full text-foreground/60 hover:text-foreground">
+                            <Link href="/game/topics">
                                 <Home size={16} className="mr-2" />
-                                Level Map
+                                Topic Map
                             </Link>
                         </Button>
                     </div>
@@ -106,8 +106,8 @@ export default function Results({ session, stats }: ResultsProps) {
 function Stat({ label, value }: { label: string; value: string }) {
     return (
         <div className="flex flex-col items-center">
-            <span className="font-display text-2xl font-bold text-white">{value}</span>
-            <span className="text-xs text-white/40">{label}</span>
+            <span className="font-display text-2xl font-bold text-foreground">{value}</span>
+            <span className="text-xs text-foreground/40">{label}</span>
         </div>
     );
 }

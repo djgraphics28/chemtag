@@ -36,7 +36,7 @@ class PlayerController extends Controller
             : 0;
 
         $recentSessions = GameSession::where('user_id', $user->id)
-            ->with('gameMode:id,code,title', 'level:id,name')
+            ->with('gameMode:id,code,title', 'topic:id,name')
             ->whereIn('status', ['completed', 'failed'])
             ->orderByDesc('ended_at')
             ->limit(5)
@@ -46,7 +46,7 @@ class PlayerController extends Controller
                 'score' => $s->score,
                 'status' => $s->status,
                 'game_mode' => $s->gameMode?->only(['code', 'title']),
-                'level' => $s->level?->only(['name']),
+                'topic' => $s->topic?->only(['name']),
                 'ended_at' => $s->ended_at?->diffForHumans(),
             ]);
 

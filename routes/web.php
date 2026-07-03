@@ -2,10 +2,10 @@
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\GameModeController as AdminGameModeController;
-use App\Http\Controllers\Admin\LevelController as AdminLevelController;
 use App\Http\Controllers\Admin\QuestionController as AdminQuestionController;
 use App\Http\Controllers\Admin\RoleController as AdminRoleController;
 use App\Http\Controllers\Admin\SettingController as AdminSettingController;
+use App\Http\Controllers\Admin\TopicController as AdminTopicController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AnswerController;
 use App\Http\Controllers\BattleController;
@@ -19,7 +19,7 @@ Route::middleware(['auth'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 
     Route::prefix('game')->name('game.')->group(function () {
-        Route::get('levels', [GameController::class, 'levels'])->name('levels');
+        Route::get('topics', [GameController::class, 'topics'])->name('topics');
         Route::post('sessions', [GameController::class, 'startSession'])->name('sessions.store');
         Route::get('sessions/{session}/play', [GameController::class, 'play'])->name('sessions.show');
         Route::get('sessions/{session}/question', [GameController::class, 'currentQuestion'])->name('sessions.question');
@@ -52,7 +52,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('questions/import', [AdminQuestionController::class, 'import'])->name('questions.import');
         Route::resource('questions', AdminQuestionController::class)->except('show');
         Route::resource('game-modes', AdminGameModeController::class)->only(['index', 'update']);
-        Route::resource('levels', AdminLevelController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::resource('topics', AdminTopicController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::get('settings', [AdminSettingController::class, 'index'])->name('settings.index');
         Route::post('settings', [AdminSettingController::class, 'update'])->name('settings.update');
     });
