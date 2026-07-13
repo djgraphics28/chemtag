@@ -59,10 +59,35 @@
     --color-game-navy: oklch(0.156 0.038 264.8);
 
     /* Game semantic tokens (used in game components) */
-    --color-game-primary: oklch(0.6 0.24 277.6);     /* electric purple */
-    --color-game-correct: oklch(0.72 0.19 145);       /* vivid green */
-    --color-game-danger: oklch(0.65 0.22 24.5);       /* coral red */
-    --color-game-warning: oklch(0.80 0.18 70);        /* amber */
+    --color-game-primary: oklch(0.6 0.24 277.6); /* electric purple */
+    --color-game-correct: oklch(0.72 0.19 145); /* vivid green */
+    --color-game-danger: oklch(0.65 0.22 24.5); /* coral red */
+    --color-game-warning: oklch(0.8 0.18 70); /* amber */
+
+    /* Playful motion */
+    --animate-float: float 6s ease-in-out infinite;
+    --animate-float-slow: float 9s ease-in-out infinite;
+    --animate-wiggle: wiggle 2.5s ease-in-out infinite;
+
+    @keyframes float {
+        0%,
+        100% {
+            transform: translateY(0) rotate(var(--float-rotate, 0deg));
+        }
+        50% {
+            transform: translateY(-14px) rotate(var(--float-rotate, 0deg));
+        }
+    }
+
+    @keyframes wiggle {
+        0%,
+        100% {
+            transform: rotate(-3deg);
+        }
+        50% {
+            transform: rotate(3deg);
+        }
+    }
 }
 
 :root {
@@ -73,15 +98,15 @@
     --card-foreground: oklch(0.18 0.038 264);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.18 0.038 264);
-    --primary: oklch(0.496 0.265 277.6);       /* electric purple */
+    --primary: oklch(0.496 0.265 277.6); /* electric purple */
     --primary-foreground: oklch(1 0 0);
-    --secondary: oklch(0.762 0.199 131.2);     /* lime */
+    --secondary: oklch(0.762 0.199 131.2); /* lime */
     --secondary-foreground: oklch(0.18 0.038 264);
     --muted: oklch(0.96 0.006 280);
     --muted-foreground: oklch(0.52 0.04 264);
-    --accent: oklch(0.793 0.131 216.4);        /* sky blue */
+    --accent: oklch(0.793 0.131 216.4); /* sky blue */
     --accent-foreground: oklch(0.18 0.038 264);
-    --destructive: oklch(0.671 0.197 24.5);    /* coral */
+    --destructive: oklch(0.671 0.197 24.5); /* coral */
     --destructive-foreground: oklch(1 0 0);
     --border: oklch(0.91 0.01 280);
     --input: oklch(0.91 0.01 280);
@@ -149,10 +174,15 @@
     }
 
     body {
-        @apply bg-background text-foreground font-sans antialiased;
+        @apply bg-background font-sans text-foreground antialiased;
     }
 
-    h1, h2, h3, h4, h5, h6 {
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
         font-family: var(--font-display);
     }
 }
