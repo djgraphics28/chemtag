@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\BattleLobbyUpdated;
 use App\Events\BattlePlayerAnswered;
 use App\Events\BattleRoomUpdated;
 use App\Events\BattleRoundEnded;
@@ -20,25 +21,49 @@ class BattleRoomService
 {
     public const COUNTDOWN_SECONDS = 4;
 
-    public function createRoom(User $host, int $gameModeId, int $topicId): GameRoom
-    {
-        return DB::transaction(function () use ($host, $gameModeId, $topicId): GameRoom {
+    public const MIN_PLAYERS = 2;
+
+    public const MAX_PLAYERS = 100;
+
+    /** Fixed team-battle formats: 3v3, 5v5, 10v10, 15v15, 20v20, 25v25. */
+    public const TEAM_SIZES = [3, 5, 10, 15, 20, 25];
+
+    public const DEFAULT_TEAM_SIZE = 5;
+
+    public function createRoom(
+        User $host,
+        int $gameModeId,
+        int $topicId,
+        int $maxPlayers = self::MAX_PLAYERS,
+        ?string $name = null,
+        string $color = 'purple',
+        string $battleType = 'single',
+    ): GameRoom {
+        $room = DB::transaction(function () use ($host, $gameModeId, $topicId, $maxPlayers, $name, $color, $battleType): GameRoom {
             $room = GameRoom::create([
                 'code' => $this->generateUniqueCode(),
+                'name' => $name ?: "{$host->name}'s Battle",
+                'color' => $color,
+                'battle_type' => $battleType,
                 'host_id' => $host->id,
                 'game_mode_id' => $gameModeId,
                 'topic_id' => $topicId,
                 'status' => 'waiting',
-                'max_players' => 30,
+                'max_players' => $maxPlayers,
             ]);
 
             $room->players()->create([
                 'user_id' => $host->id,
+                'team' => $battleType === 'team' ? 'red' : null,
                 'joined_at' => now(),
             ]);
 
             return $room;
         });
+
+        broadcast(new BattleLobbyUpdated);
+
+        return $room;
     }
 
     public function join(GameRoom $room, User $user): void
@@ -52,10 +77,42 @@ class BattleRoomService
 
         $room->players()->firstOrCreate(
             ['user_id' => $user->id],
-            ['joined_at' => now()],
+            [
+                'team' => $room->battle_type === 'team' ? $this->smallerTeam($room) : null,
+                'joined_at' => now(),
+            ],
         );
 
         $this->broadcastRoomState($room);
+        broadcast(new BattleLobbyUpdated);
+    }
+
+    public function switchTeam(GameRoom $room, User $user, string $team): void
+    {
+        abort_if($room->status !== 'waiting', 422, 'The battle has already started.');
+        abort_if($room->battle_type !== 'team', 422, 'This is not a team battle.');
+        abort_if(
+            $room->players()->where('team', $team)->where('user_id', '!=', $user->id)->count() >= intdiv($room->max_players, 2),
+            422,
+            'That team is full.'
+        );
+
+        $room->players()->where('user_id', $user->id)->firstOrFail()->update(['team' => $team]);
+
+        $this->broadcastRoomState($room);
+    }
+
+    /**
+     * The team with fewer members, so auto-assignment keeps sides balanced.
+     */
+    private function smallerTeam(GameRoom $room): string
+    {
+        $counts = $room->players()
+            ->selectRaw('team, count(*) as total')
+            ->groupBy('team')
+            ->pluck('total', 'team');
+
+        return ($counts->get('red', 0) <= $counts->get('blue', 0)) ? 'red' : 'blue';
     }
 
     public function leave(GameRoom $room, User $user): void
@@ -66,6 +123,7 @@ class BattleRoomService
 
         if (! $remaining) {
             $room->delete();
+            broadcast(new BattleLobbyUpdated);
 
             return;
         }
@@ -76,6 +134,7 @@ class BattleRoomService
         }
 
         $this->broadcastRoomState($room);
+        broadcast(new BattleLobbyUpdated);
     }
 
     public function toggleReady(GameRoom $room, User $user): void
@@ -98,6 +157,15 @@ class BattleRoomService
             422,
             'All players must be ready.'
         );
+
+        if ($room->battle_type === 'team') {
+            abort_if(
+                $room->players()->where('team', 'red')->doesntExist()
+                    || $room->players()->where('team', 'blue')->doesntExist(),
+                422,
+                'Both teams need at least one player.'
+            );
+        }
 
         $room->load('topic');
 
@@ -132,6 +200,7 @@ class BattleRoomService
             $questions->count(),
             now()->addSeconds(self::COUNTDOWN_SECONDS)->toIso8601String(),
         ));
+        broadcast(new BattleLobbyUpdated);
     }
 
     /**
@@ -351,6 +420,7 @@ class BattleRoomService
                 'name' => $p->user->name,
                 'username' => $p->user->username,
                 'avatar_path' => $p->user->avatar_path,
+                'team' => $p->team,
                 'score' => $p->score,
                 'is_host' => $p->user_id === $room->host_id,
             ])->values()->all();
@@ -370,6 +440,7 @@ class BattleRoomService
                 'name' => $p->user->name,
                 'username' => $p->user->username,
                 'avatar_path' => $p->user->avatar_path,
+                'team' => $p->team,
                 'score' => $p->score,
                 'is_ready' => $p->is_ready,
                 'is_host' => $p->user_id === $room->host_id,

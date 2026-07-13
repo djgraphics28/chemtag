@@ -260,3 +260,210 @@ it('blocks joining a battle that already started', function (): void {
         ->post('/battle/join', ['code' => $room->code])
         ->assertStatus(422);
 });
+
+it('lets the host set the maximum players when creating a room', function (): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'max_players' => 5,
+    ]);
+
+    expect(GameRoom::latest('id')->firstOrFail()->max_players)->toBe(5);
+});
+
+it('defaults max players to 100 when not provided', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+
+    expect($room->max_players)->toBe(100);
+});
+
+it('rejects a max players value outside the allowed range', function (int $maxPlayers): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'max_players' => $maxPlayers,
+    ])->assertSessionHasErrors('max_players');
+})->with([1, 101, 0, -3]);
+
+it('blocks joining a room that is already full', function (): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'max_players' => 2,
+    ]);
+    $room = GameRoom::latest('id')->firstOrFail();
+
+    actingAs($this->guest)->post('/battle/join', ['code' => $room->code]);
+
+    $third = User::factory()->create();
+
+    actingAs($third)
+        ->post('/battle/join', ['code' => $room->code])
+        ->assertStatus(422);
+
+    expect($room->players()->count())->toBe(2);
+});
+
+it('creates a room with a name, color, and battle type', function (): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'name' => 'Friday Chem Showdown',
+        'color' => 'lime',
+        'battle_type' => 'team',
+    ]);
+
+    $room = GameRoom::latest('id')->firstOrFail();
+
+    expect($room->name)->toBe('Friday Chem Showdown')
+        ->and($room->color)->toBe('lime')
+        ->and($room->battle_type)->toBe('team');
+});
+
+it('falls back to a default battle name and single type', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+
+    expect($room->name)->toBe("{$this->host->name}'s Battle")
+        ->and($room->battle_type)->toBe('single')
+        ->and($room->color)->toBe('purple');
+});
+
+it('rejects an invalid battle color or type', function (): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'color' => 'neon-pink',
+        'battle_type' => 'royale',
+    ])->assertSessionHasErrors(['color', 'battle_type']);
+});
+
+it('auto-assigns balanced teams in a team battle', function (): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'battle_type' => 'team',
+    ]);
+    $room = GameRoom::latest('id')->firstOrFail();
+
+    expect($room->players()->where('user_id', $this->host->id)->value('team'))->toBe('red');
+
+    actingAs($this->guest)->post('/battle/join', ['code' => $room->code]);
+
+    expect($room->players()->where('user_id', $this->guest->id)->value('team'))->toBe('blue');
+
+    $third = User::factory()->create();
+
+    actingAs($third)->post('/battle/join', ['code' => $room->code]);
+
+    expect($room->players()->where('user_id', $third->id)->value('team'))->toBe('red');
+});
+
+it('lets a player switch teams while waiting', function (): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'battle_type' => 'team',
+    ]);
+    $room = GameRoom::latest('id')->firstOrFail();
+
+    actingAs($this->guest)->post('/battle/join', ['code' => $room->code]);
+    actingAs($this->guest)->post("/battle/rooms/{$room->code}/team", ['team' => 'red']);
+
+    expect($room->players()->where('user_id', $this->guest->id)->value('team'))->toBe('red');
+});
+
+it('rejects switching teams in a single battle', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+
+    actingAs($this->host)
+        ->post("/battle/rooms/{$room->code}/team", ['team' => 'blue'])
+        ->assertStatus(422);
+});
+
+it('requires both teams to have players before starting', function (): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'battle_type' => 'team',
+    ]);
+    $room = GameRoom::latest('id')->firstOrFail();
+
+    actingAs($this->guest)->post('/battle/join', ['code' => $room->code]);
+    // Everyone piles onto red, leaving blue empty
+    actingAs($this->guest)->post("/battle/rooms/{$room->code}/team", ['team' => 'red']);
+    actingAs($this->guest)->post("/battle/rooms/{$room->code}/ready");
+
+    actingAs($this->host)
+        ->post("/battle/rooms/{$room->code}/start")
+        ->assertStatus(422);
+
+    expect($room->fresh()->status)->toBe('waiting');
+});
+it('sets capacity from the chosen team format', function (): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'battle_type' => 'team',
+        'team_size' => 25,
+    ]);
+
+    expect(GameRoom::latest('id')->firstOrFail()->max_players)->toBe(50);
+});
+
+it('rejects a team size outside the fixed formats', function (int $teamSize): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'battle_type' => 'team',
+        'team_size' => $teamSize,
+    ])->assertSessionHasErrors('team_size');
+})->with([2, 4, 26, 50]);
+
+it('defaults a team battle to 5v5', function (): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'battle_type' => 'team',
+    ]);
+
+    expect(GameRoom::latest('id')->firstOrFail()->max_players)->toBe(10);
+});
+
+it('ignores max_players for team battles and uses the format instead', function (): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'battle_type' => 'team',
+        'team_size' => 3,
+        'max_players' => 80,
+    ]);
+
+    expect(GameRoom::latest('id')->firstOrFail()->max_players)->toBe(6);
+});
+
+it('blocks switching to a full team in a 3v3', function (): void {
+    actingAs($this->host)->post('/battle/rooms', [
+        'game_mode_id' => $this->gameMode->id,
+        'topic_id' => $this->topic->id,
+        'battle_type' => 'team',
+        'team_size' => 3,
+    ]);
+    $room = GameRoom::latest('id')->firstOrFail();
+
+    // Host is on red; fill red to the 3-player cap
+    User::factory(2)->create()->each(fn (User $user) => $room->players()->create([
+        'user_id' => $user->id,
+        'team' => 'red',
+        'joined_at' => now(),
+    ]));
+
+    actingAs($this->guest)->post('/battle/join', ['code' => $room->code]);
+
+    expect($room->players()->where('user_id', $this->guest->id)->value('team'))->toBe('blue');
+
+    actingAs($this->guest)
+        ->post("/battle/rooms/{$room->code}/team", ['team' => 'red'])
+        ->assertStatus(422);
+
+    expect($room->players()->where('user_id', $this->guest->id)->value('team'))->toBe('blue');
+});

@@ -46,16 +46,16 @@ const features = [
         title: 'Solo Quests',
         description:
             'Race the clock through chemistry topics and rack up points question by question.',
-        className: 'bg-game-purple/10 text-game-purple border-game-purple/25',
-        iconClassName: 'bg-game-purple text-white',
+        className: 'bg-game-purple/10 text-game-primary border-game-purple/40',
+        iconClassName: 'bg-game-purple text-game-navy',
     },
     {
         icon: Swords,
         title: 'Battle Mode',
         description:
             'Challenge your classmates to real-time quiz battles and claim bragging rights.',
-        className: 'bg-game-coral/10 text-game-coral border-game-coral/25',
-        iconClassName: 'bg-game-coral text-white',
+        className: 'bg-game-coral/10 text-game-danger border-game-coral/40',
+        iconClassName: 'bg-game-coral text-game-navy',
     },
     {
         icon: Trophy,
@@ -100,7 +100,7 @@ export default function Welcome() {
                         key={element.symbol}
                         aria-hidden
                         style={{ animationDelay: element.delay }}
-                        className={`absolute hidden w-20 animate-float rounded-2xl p-2 text-white shadow-xl md:block ${element.className}`}
+                        className={`absolute hidden w-20 animate-float rounded-2xl p-2 text-game-navy shadow-xl md:block ${element.className}`}
                     >
                         <span className="block text-right text-[10px] font-semibold opacity-80">
                             {element.number}
@@ -153,7 +153,7 @@ export default function Welcome() {
 
                 {/* Hero */}
                 <main className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col items-center px-6 pt-10 pb-16 text-center lg:pt-20">
-                    <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-game-purple/30 bg-game-purple/10 px-4 py-1.5 text-sm font-semibold text-game-purple dark:text-primary">
+                    <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-game-purple/30 bg-game-purple/10 px-4 py-1.5 text-sm font-semibold text-game-primary dark:text-primary">
                         <Zap size={14} className="fill-current" />
                         The chemistry quiz game for students
                     </span>
@@ -175,7 +175,7 @@ export default function Welcome() {
                     <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
                         <Link
                             href={auth.user ? dashboard() : register()}
-                            className="rounded-full bg-gradient-to-r from-game-purple to-game-primary px-8 py-3.5 font-display text-lg font-bold text-white shadow-xl shadow-game-purple/30 transition-transform hover:scale-105"
+                            className="rounded-full bg-gradient-to-r from-game-purple to-game-sky px-8 py-3.5 font-display text-lg font-bold text-game-navy shadow-xl shadow-game-purple/30 transition-transform hover:scale-105"
                         >
                             {auth.user
                                 ? 'Keep Playing'

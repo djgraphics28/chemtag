@@ -41,7 +41,7 @@ const podiumStyles = [
         order: 'order-3',
         height: 'h-16',
         bar: 'bg-gradient-to-t from-game-coral/70 to-game-coral',
-        avatar: 'bg-game-coral text-white ring-game-coral/40',
+        avatar: 'bg-game-coral text-game-navy ring-game-coral/40',
         medal: '🥉',
     },
 ];
@@ -74,13 +74,13 @@ export default function Leaderboard({
                         {userRank && (
                             <p className="mt-1 text-sm text-muted-foreground">
                                 Your rank:{' '}
-                                <span className="rounded-full bg-game-purple/10 px-2 py-0.5 font-bold text-game-purple dark:text-primary">
+                                <span className="rounded-full bg-game-purple/15 px-2 py-0.5 font-bold text-game-primary dark:text-primary">
                                     #{userRank}
                                 </span>
                             </p>
                         )}
                     </div>
-                    <span className="flex h-12 w-12 animate-wiggle items-center justify-center rounded-2xl bg-gradient-to-br from-game-warning to-game-coral text-white shadow-lg shadow-game-warning/30">
+                    <span className="flex h-12 w-12 animate-wiggle items-center justify-center rounded-2xl bg-gradient-to-br from-game-warning/60 to-game-coral text-game-navy shadow-lg shadow-game-warning/30">
                         <Trophy size={24} />
                     </span>
                 </div>
@@ -91,7 +91,7 @@ export default function Leaderboard({
                         onClick={() => handleTopicChange('')}
                         className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-bold transition-all ${
                             !selectedTopicId
-                                ? 'bg-gradient-to-r from-game-purple to-game-primary text-white shadow-md shadow-game-purple/25'
+                                ? 'bg-gradient-to-r from-game-purple to-game-sky text-game-navy shadow-md shadow-game-purple/25'
                                 : 'bg-muted text-muted-foreground hover:bg-game-purple/10 hover:text-foreground'
                         }`}
                     >
@@ -103,7 +103,7 @@ export default function Leaderboard({
                             onClick={() => handleTopicChange(String(topic.id))}
                             className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-bold transition-all ${
                                 selectedTopicId === topic.id
-                                    ? 'bg-gradient-to-r from-game-purple to-game-primary text-white shadow-md shadow-game-purple/25'
+                                    ? 'bg-gradient-to-r from-game-purple to-game-sky text-game-navy shadow-md shadow-game-purple/25'
                                     : 'bg-muted text-muted-foreground hover:bg-game-purple/10 hover:text-foreground'
                             }`}
                         >
@@ -152,7 +152,7 @@ export default function Leaderboard({
                                     <p className="mt-1 w-full truncate text-center text-xs font-semibold text-foreground">
                                         {player.user?.name}
                                     </p>
-                                    <p className="font-display text-sm font-bold text-game-purple dark:text-primary">
+                                    <p className="font-display text-sm font-bold text-game-primary dark:text-primary">
                                         {player.best_score.toLocaleString()}
                                     </p>
                                     <div
@@ -175,7 +175,7 @@ export default function Leaderboard({
                                 {i + 4}
                             </span>
 
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-game-purple/10 font-display text-sm font-bold text-game-purple uppercase dark:text-primary">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-game-purple/10 font-display text-sm font-bold text-game-primary uppercase dark:text-primary">
                                 {player.user?.name.charAt(0) ?? '?'}
                             </div>
 
@@ -188,7 +188,7 @@ export default function Leaderboard({
                                 </p>
                             </div>
 
-                            <span className="font-display text-lg font-bold text-game-purple dark:text-primary">
+                            <span className="font-display text-lg font-bold text-game-primary dark:text-primary">
                                 {player.best_score.toLocaleString()}
                             </span>
                         </div>

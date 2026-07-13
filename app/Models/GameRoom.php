@@ -8,11 +8,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $status waiting|in_progress|finished
+ * @property string $battle_type single|team
  */
 class GameRoom extends Model
 {
+    public const COLORS = ['purple', 'coral', 'sky', 'lime', 'amber'];
+
+    public const TEAMS = ['red', 'blue'];
+
     protected $fillable = [
-        'code', 'host_id', 'game_mode_id', 'topic_id', 'status', 'max_players',
+        'code', 'name', 'color', 'battle_type', 'host_id', 'game_mode_id', 'topic_id', 'status', 'max_players',
     ];
 
     /** @return BelongsTo<User, $this> */

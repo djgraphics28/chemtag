@@ -47,10 +47,21 @@ export default function Results({ session, stats }: ResultsProps) {
                         <motion.div
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
-                            transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+                            transition={{
+                                delay: 0.1,
+                                type: 'spring',
+                                stiffness: 200,
+                            }}
                             className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-game-primary/20"
                         >
-                            <Trophy size={40} className={isCompleted ? 'text-game-primary' : 'text-foreground/40'} />
+                            <Trophy
+                                size={40}
+                                className={
+                                    isCompleted
+                                        ? 'text-game-primary'
+                                        : 'text-foreground/40'
+                                }
+                            />
                         </motion.div>
                         <h1 className="font-display text-4xl font-bold text-foreground">
                             {isCompleted ? 'Topic Complete!' : 'Game Over'}
@@ -66,13 +77,19 @@ export default function Results({ session, stats }: ResultsProps) {
                     </div>
 
                     {/* Score card */}
-                    <div className="rounded-3xl border border-foreground/10 bg-foreground/5 p-6 space-y-4">
+                    <div className="space-y-4 rounded-3xl border border-foreground/10 bg-foreground/5 p-6">
                         <div className="flex justify-center">
                             <XpBadge xp={stats.xp_earned} />
                         </div>
                         <div className="grid grid-cols-3 gap-4">
-                            <Stat label="Score" value={displayScore.toLocaleString()} />
-                            <Stat label="Accuracy" value={`${stats.accuracy}%`} />
+                            <Stat
+                                label="Score"
+                                value={displayScore.toLocaleString()}
+                            />
+                            <Stat
+                                label="Accuracy"
+                                value={`${stats.accuracy}%`}
+                            />
                             <Stat
                                 label="Correct"
                                 value={`${stats.correct_count}/${stats.total_questions}`}
@@ -84,13 +101,18 @@ export default function Results({ session, stats }: ResultsProps) {
                     <div className="flex flex-col gap-2">
                         <Button
                             onClick={handlePlayAgain}
-                            className="w-full bg-game-primary font-bold text-white hover:bg-game-primary/90"
+                            className="w-full bg-game-purple font-bold text-game-navy hover:bg-game-purple/90"
                             size="lg"
                         >
                             <RefreshCw size={16} className="mr-2" />
                             Play Again
                         </Button>
-                        <Button asChild variant="ghost" size="lg" className="w-full text-foreground/60 hover:text-foreground">
+                        <Button
+                            asChild
+                            variant="ghost"
+                            size="lg"
+                            className="w-full text-foreground/60 hover:text-foreground"
+                        >
                             <Link href="/game/topics">
                                 <Home size={16} className="mr-2" />
                                 Topic Map
@@ -106,7 +128,9 @@ export default function Results({ session, stats }: ResultsProps) {
 function Stat({ label, value }: { label: string; value: string }) {
     return (
         <div className="flex flex-col items-center">
-            <span className="font-display text-2xl font-bold text-foreground">{value}</span>
+            <span className="font-display text-2xl font-bold text-foreground">
+                {value}
+            </span>
             <span className="text-xs text-foreground/40">{label}</span>
         </div>
     );

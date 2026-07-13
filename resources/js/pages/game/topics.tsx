@@ -12,11 +12,11 @@ interface TopicsProps {
 
 const topicColorCycle = [
     {
-        tile: 'bg-game-purple text-white',
+        tile: 'bg-game-purple text-game-navy',
         selected: 'border-game-purple bg-game-purple/10 ring-game-purple/30',
     },
     {
-        tile: 'bg-game-coral text-white',
+        tile: 'bg-game-coral text-game-navy',
         selected: 'border-game-coral bg-game-coral/10 ring-game-coral/30',
     },
     {
@@ -35,8 +35,8 @@ export default function Topics({ modes, topics, user_xp }: TopicsProps) {
 
     function handleStart() {
         if (!selectedTopic || !selectedMode) {
-return;
-}
+            return;
+        }
 
         router.post('/game/sessions', {
             game_mode_id: selectedMode,
@@ -58,7 +58,7 @@ return;
                             Select a mode and topic to start playing
                         </p>
                     </div>
-                    <div className="flex items-center gap-2 rounded-full bg-gradient-to-r from-game-purple to-game-primary px-4 py-2 text-sm font-bold text-white shadow-md shadow-game-purple/25">
+                    <div className="flex items-center gap-2 rounded-full bg-gradient-to-r from-game-purple to-game-sky px-4 py-2 text-sm font-bold text-game-navy shadow-md shadow-game-purple/25">
                         <Trophy size={14} />
                         <span>{user_xp.toLocaleString()} XP</span>
                     </div>
@@ -148,7 +148,7 @@ return;
                 <Button
                     disabled={!selectedTopic || !selectedMode}
                     onClick={handleStart}
-                    className="w-full bg-gradient-to-r from-game-purple to-game-primary font-display text-lg font-bold text-white shadow-lg shadow-game-purple/30 transition-transform hover:scale-[1.02] hover:from-game-purple/90 hover:to-game-primary/90 disabled:shadow-none"
+                    className="w-full bg-gradient-to-r from-game-purple to-game-sky font-display text-lg font-bold text-game-navy shadow-lg shadow-game-purple/30 transition-transform hover:scale-[1.02] hover:from-game-purple/90 hover:to-game-sky/90 disabled:shadow-none"
                     size="lg"
                 >
                     <Rocket size={18} className="mr-2" />

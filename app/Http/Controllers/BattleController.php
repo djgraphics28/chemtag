@@ -9,6 +9,7 @@ use App\Services\BattleRoomService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -26,6 +27,9 @@ class BattleController extends Controller
             ->get()
             ->map(fn (GameRoom $room) => [
                 'code' => $room->code,
+                'name' => $room->name,
+                'color' => $room->color,
+                'battle_type' => $room->battle_type,
                 'host' => $room->host->only(['name', 'username']),
                 'game_mode' => $room->gameMode->only(['code', 'title']),
                 'topic' => $room->topic->only(['name']),
@@ -42,20 +46,41 @@ class BattleController extends Controller
             'my_room_code' => $myRoom?->code,
             'game_modes' => GameMode::where('is_active', true)->get(['id', 'code', 'title']),
             'topics' => Topic::orderBy('order')->get(['id', 'name', 'order', 'questions_per_game']),
+            'player_limits' => [
+                'min' => BattleRoomService::MIN_PLAYERS,
+                'max_single' => BattleRoomService::MAX_PLAYERS,
+                'team_sizes' => BattleRoomService::TEAM_SIZES,
+            ],
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $isTeam = $request->input('battle_type') === 'team';
+
         $validated = $request->validate([
             'game_mode_id' => ['required', 'exists:game_modes,id'],
             'topic_id' => ['required', 'exists:topics,id'],
+            'max_players' => ['nullable', 'integer', 'min:'.BattleRoomService::MIN_PLAYERS, 'max:'.BattleRoomService::MAX_PLAYERS],
+            'team_size' => ['nullable', 'integer', Rule::in(BattleRoomService::TEAM_SIZES)],
+            'name' => ['nullable', 'string', 'max:40'],
+            'color' => ['nullable', 'string', Rule::in(GameRoom::COLORS)],
+            'battle_type' => ['nullable', 'string', Rule::in(['single', 'team'])],
         ]);
+
+        // Team battles use fixed formats (3v3 … 25v25); capacity is derived, never user-set.
+        $maxPlayers = $isTeam
+            ? 2 * (int) ($validated['team_size'] ?? BattleRoomService::DEFAULT_TEAM_SIZE)
+            : (int) ($validated['max_players'] ?? BattleRoomService::MAX_PLAYERS);
 
         $room = $this->service->createRoom(
             $request->user(),
             (int) $validated['game_mode_id'],
             (int) $validated['topic_id'],
+            $maxPlayers,
+            $validated['name'] ?? null,
+            $validated['color'] ?? 'purple',
+            $validated['battle_type'] ?? 'single',
         );
 
         return redirect()->route('battle.rooms.show', $room);
@@ -99,6 +124,9 @@ class BattleController extends Controller
         return Inertia::render('battle/room', [
             'room' => [
                 'code' => $room->code,
+                'name' => $room->name,
+                'color' => $room->color,
+                'battle_type' => $room->battle_type,
                 'status' => $room->status,
                 'host_id' => $room->host_id,
                 'max_players' => $room->max_players,
@@ -115,6 +143,17 @@ class BattleController extends Controller
     public function ready(Request $request, GameRoom $room): RedirectResponse
     {
         $this->service->toggleReady($room, $request->user());
+
+        return back();
+    }
+
+    public function team(Request $request, GameRoom $room): RedirectResponse
+    {
+        $validated = $request->validate([
+            'team' => ['required', 'string', Rule::in(GameRoom::TEAMS)],
+        ]);
+
+        $this->service->switchTeam($room, $request->user(), $validated['team']);
 
         return back();
     }

@@ -11,7 +11,7 @@ use Illuminate\Support\Carbon;
  */
 class GameRoomPlayer extends Model
 {
-    protected $fillable = ['game_room_id', 'user_id', 'score', 'is_ready', 'joined_at'];
+    protected $fillable = ['game_room_id', 'user_id', 'team', 'score', 'is_ready', 'joined_at'];
 
     protected function casts(): array
     {

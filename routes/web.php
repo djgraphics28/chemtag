@@ -36,6 +36,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('join', [BattleController::class, 'join'])->name('join');
         Route::get('rooms/{room:code}', [BattleController::class, 'show'])->name('rooms.show');
         Route::post('rooms/{room:code}/ready', [BattleController::class, 'ready'])->name('rooms.ready');
+        Route::post('rooms/{room:code}/team', [BattleController::class, 'team'])->name('rooms.team');
         Route::post('rooms/{room:code}/leave', [BattleController::class, 'leave'])->name('rooms.leave');
         Route::post('rooms/{room:code}/start', [BattleController::class, 'start'])->name('rooms.start');
         Route::get('rooms/{room:code}/round', [BattleController::class, 'round'])->name('rooms.round');
