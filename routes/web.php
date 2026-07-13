@@ -12,6 +12,7 @@ use App\Http\Controllers\BattleController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\PlayerController;
 use Illuminate\Support\Facades\Route;
+use Artisan;
 
 Route::inertia('/', 'welcome')->name('home');
 
@@ -58,5 +59,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('settings', [AdminSettingController::class, 'update'])->name('settings.update');
     });
 });
+
+Route::get('/reverb', function () {
+    return Artisan::call('reverb:start');
+})->name('reverb');
 
 require __DIR__.'/settings.php';
