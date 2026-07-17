@@ -1,4 +1,5 @@
-export type GameModeCode = 'structure_to_name' | 'name_to_structure' | 'pattern_clue';
+export type GameModeCode =
+    'structure_to_name' | 'name_to_structure' | 'pattern_clue';
 
 export type SessionStatus = 'in_progress' | 'completed' | 'failed';
 
@@ -22,6 +23,7 @@ export interface ChoiceData {
     id: number;
     choice_text: string | null;
     choice_image_path: string | null;
+    choice_smiles: string | null;
 }
 
 export interface QuestionData {
@@ -29,6 +31,10 @@ export interface QuestionData {
     game_mode_code: string;
     prompt_text: string | null;
     prompt_image_path: string | null;
+    prompt_smiles: string | null;
+    clue_image_urls: string[];
+    word_length: number | null;
+    letters: string[] | null;
     points: number;
     time_limit_seconds: number;
 }
@@ -51,6 +57,7 @@ export interface Progress {
 export interface AnswerResult {
     is_correct: boolean;
     timed_out: boolean;
+    correct_word?: string | null;
     explanation: string | null;
     choice_feedback: Record<number, string>;
     points_earned: number;

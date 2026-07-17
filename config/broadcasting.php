@@ -13,9 +13,13 @@ return [
     |
     | Supported: "reverb", "pusher", "ably", "redis", "log", "null"
     |
+    | When BROADCAST_CONNECTION is not set, production uses Pusher (shared
+    | hosting cannot run the long-lived Reverb process) and every other
+    | environment uses the local Reverb server.
+    |
     */
 
-    'default' => env('BROADCAST_CONNECTION', 'null'),
+    'default' => env('BROADCAST_CONNECTION', env('APP_ENV') === 'production' ? 'pusher' : 'reverb'),
 
     /*
     |--------------------------------------------------------------------------

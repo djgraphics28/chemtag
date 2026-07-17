@@ -222,10 +222,14 @@ class BattleRoomService
      */
     public function roundPayload(GameRoomRound $round, User $user): array
     {
-        $round->load('question.choices');
+        $round->load('question.choices', 'question.gameMode');
         $question = $round->question;
 
         $hasAnswered = $round->answers()->where('user_id', $user->id)->exists();
+
+        // 4 Pics 1 Word: choices would leak the answer, so the client gets
+        // the clue images plus a letter pool instead.
+        $isCluePuzzle = $question->gameMode->code === 'pattern_clue';
 
         return [
             'round_number' => $round->round_number,
@@ -238,14 +242,19 @@ class BattleRoomService
             'question' => [
                 'id' => $question->id,
                 'prompt_text' => $question->prompt_text,
-                'prompt_image_path' => $question->prompt_image_path,
+                'prompt_image_path' => $question->promptImageUrl(),
+                'prompt_smiles' => $question->prompt_smiles,
+                'clue_image_urls' => $isCluePuzzle ? $question->clueImageUrls() : [],
+                'word_length' => $isCluePuzzle ? strlen((string) $question->clueAnswer()) : null,
+                'letters' => $isCluePuzzle ? $question->clueLetterPool() : null,
                 'points' => $question->points,
                 'time_limit_seconds' => $question->time_limit_seconds,
             ],
-            'choices' => $question->choices->shuffle()->map(fn (QuestionChoice $c) => [
+            'choices' => $isCluePuzzle ? [] : $question->choices->shuffle()->map(fn (QuestionChoice $c) => [
                 'id' => $c->id,
                 'choice_text' => $c->choice_text,
-                'choice_image_path' => $c->choice_image_path,
+                'choice_image_path' => $c->choiceImageUrl(),
+                'choice_smiles' => $c->choice_smiles,
             ])->values(),
         ];
     }
@@ -255,7 +264,7 @@ class BattleRoomService
      *
      * @return array<string, mixed>
      */
-    public function submitAnswer(GameRoom $room, User $user, ?int $choiceId): array
+    public function submitAnswer(GameRoom $room, User $user, ?int $choiceId, ?string $word = null): array
     {
         $round = $this->currentRound($room);
 
@@ -282,7 +291,18 @@ class BattleRoomService
             abort_if($choice === null, 422, 'Choice does not belong to this question.');
         }
 
-        $isCorrect = (bool) ($choice?->is_correct ?? false);
+        // 4 Pics 1 Word answers arrive as a typed word instead of a choice
+        if ($word !== null && $choiceId === null) {
+            $isCorrect = $question->clueAnswer() !== null
+                && Question::normalizeWord($word) === $question->clueAnswer();
+
+            // Record against the correct choice so round results stay consistent
+            $choiceId = $isCorrect
+                ? $question->choices->firstWhere('is_correct', true)?->id
+                : null;
+        } else {
+            $isCorrect = (bool) ($choice?->is_correct ?? false);
+        }
         $timeTakenMs = (int) max(0, $round->started_at?->diffInMilliseconds(now(), false) ?? 0);
 
         $pointsEarned = 0;
@@ -326,6 +346,7 @@ class BattleRoomService
             'points_earned' => $pointsEarned,
             'answered_count' => $answeredCount,
             'player_count' => $playerCount,
+            'correct_word' => $word !== null ? $question->clueAnswer() : null,
         ];
     }
 

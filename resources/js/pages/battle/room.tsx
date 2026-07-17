@@ -12,7 +12,11 @@ import {
     Users,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { MoleculeView } from '@/components/chem/molecule-view';
+import { ClueImageGrid } from '@/components/game/clue-image-grid';
+import { ClueTileGrid } from '@/components/game/clue-tile-grid';
 import { ConfettiBurst } from '@/components/game/confetti-burst';
+import { WordBuilder } from '@/components/game/word-builder';
 import { Button } from '@/components/ui/button';
 import { useCountUp } from '@/hooks/use-count-up';
 import { useGameSounds } from '@/hooks/use-game-sounds';
@@ -82,6 +86,10 @@ interface RoundPayload {
         id: number;
         prompt_text: string | null;
         prompt_image_path: string | null;
+        prompt_smiles: string | null;
+        clue_image_urls: string[];
+        word_length: number | null;
+        letters: string[] | null;
         points: number;
         time_limit_seconds: number;
     };
@@ -89,6 +97,7 @@ interface RoundPayload {
         id: number;
         choice_text: string | null;
         choice_image_path: string | null;
+        choice_smiles: string | null;
     }[];
 }
 
@@ -157,6 +166,7 @@ export default function BattleRoom({
     const [myResult, setMyResult] = useState<{
         is_correct: boolean;
         points_earned: number;
+        correct_word?: string | null;
     } | null>(null);
     const [answeredCount, setAnsweredCount] = useState(
         current_round?.answered_count ?? 0,
@@ -342,20 +352,24 @@ export default function BattleRoom({
     }, []);
 
     // ── Actions ──────────────────────────────────────────────────
-    async function answer(choiceId: number) {
+    async function answer(choiceId: number | null, word?: string) {
         if (selectedId !== null || myResult || phase !== 'question') {
             return;
         }
 
-        setSelectedId(choiceId);
+        setSelectedId(choiceId ?? -1);
 
         try {
             const result = await apiFetch<{
                 is_correct: boolean;
                 points_earned: number;
+                correct_word?: string | null;
             }>(`/battle/rooms/${room.code}/answers`, {
                 method: 'POST',
-                body: JSON.stringify({ choice_id: choiceId }),
+                body: JSON.stringify({
+                    choice_id: choiceId,
+                    word: word ?? null,
+                }),
             });
             setMyResult(result);
         } catch {
@@ -671,6 +685,27 @@ export default function BattleRoom({
                             animate={{ opacity: 1, y: 0 }}
                             className="rounded-3xl border border-foreground/10 bg-foreground/5 px-6 py-7 text-center"
                         >
+                            {round.question.clue_image_urls?.length > 0 ? (
+                                <div className="mb-3">
+                                    <ClueImageGrid
+                                        urls={round.question.clue_image_urls}
+                                    />
+                                </div>
+                            ) : round.question.letters?.length &&
+                              round.question.prompt_smiles ? (
+                                <div className="mb-3">
+                                    <ClueTileGrid
+                                        smiles={round.question.prompt_smiles}
+                                    />
+                                </div>
+                            ) : null}
+                            {round.question.prompt_smiles &&
+                                !round.question.letters?.length && (
+                                    <MoleculeView
+                                        smiles={round.question.prompt_smiles}
+                                        className="mb-3"
+                                    />
+                                )}
                             {round.question.prompt_image_path && (
                                 <img
                                     src={round.question.prompt_image_path}
@@ -688,47 +723,72 @@ export default function BattleRoom({
                             </p>
                         </motion.div>
 
-                        {/* Choices */}
-                        <div className="grid grid-cols-2 gap-3">
-                            {round.choices.map((c, i) => (
-                                <motion.button
-                                    key={c.id}
-                                    initial={{ opacity: 0, y: 14 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: i * 0.06 }}
-                                    whileTap={
-                                        selectedId === null
-                                            ? { scale: 0.95 }
-                                            : undefined
-                                    }
-                                    disabled={selectedId !== null}
-                                    onClick={() => answer(c.id)}
-                                    className={cn(
-                                        'flex min-h-[76px] items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition-colors',
-                                        selectedId === c.id
-                                            ? 'border-game-primary bg-game-primary/25 text-foreground'
-                                            : selectedId !== null
-                                              ? 'border-foreground/10 bg-foreground/5 text-foreground/30'
-                                              : 'cursor-pointer border-foreground/20 bg-foreground/5 text-foreground hover:border-game-primary/60',
-                                    )}
-                                >
-                                    <span className="text-xs font-bold opacity-60">
-                                        {String.fromCharCode(65 + i)}
-                                    </span>
-                                    {c.choice_image_path ? (
-                                        <img
-                                            src={c.choice_image_path}
-                                            alt=""
-                                            className="h-10 object-contain"
-                                        />
-                                    ) : (
-                                        <span className="text-sm font-medium">
-                                            {c.choice_text}
+                        {/* Answer: letter tiles for 4-Pics-1-Word, choices otherwise */}
+                        {round.question.letters?.length ? (
+                            <WordBuilder
+                                key={round.round_number}
+                                letters={round.question.letters}
+                                wordLength={round.question.word_length ?? 0}
+                                disabled={!!myResult}
+                                status={
+                                    myResult
+                                        ? myResult.is_correct
+                                            ? 'correct'
+                                            : 'wrong'
+                                        : 'idle'
+                                }
+                                correctWord={myResult?.correct_word}
+                                onSubmit={(word) => answer(null, word)}
+                            />
+                        ) : (
+                            <div className="grid grid-cols-2 gap-3">
+                                {round.choices.map((c, i) => (
+                                    <motion.button
+                                        key={c.id}
+                                        initial={{ opacity: 0, y: 14 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: i * 0.06 }}
+                                        whileTap={
+                                            selectedId === null
+                                                ? { scale: 0.95 }
+                                                : undefined
+                                        }
+                                        disabled={selectedId !== null}
+                                        onClick={() => answer(c.id)}
+                                        className={cn(
+                                            'flex min-h-[76px] items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition-colors',
+                                            selectedId === c.id
+                                                ? 'border-game-primary bg-game-primary/25 text-foreground'
+                                                : selectedId !== null
+                                                  ? 'border-foreground/10 bg-foreground/5 text-foreground/30'
+                                                  : 'cursor-pointer border-foreground/20 bg-foreground/5 text-foreground hover:border-game-primary/60',
+                                        )}
+                                    >
+                                        <span className="text-xs font-bold opacity-60">
+                                            {String.fromCharCode(65 + i)}
                                         </span>
-                                    )}
-                                </motion.button>
-                            ))}
-                        </div>
+                                        {c.choice_smiles ? (
+                                            <MoleculeView
+                                                smiles={c.choice_smiles}
+                                                width={200}
+                                                height={110}
+                                                className="pointer-events-none"
+                                            />
+                                        ) : c.choice_image_path ? (
+                                            <img
+                                                src={c.choice_image_path}
+                                                alt=""
+                                                className="h-10 object-contain"
+                                            />
+                                        ) : (
+                                            <span className="text-sm font-medium">
+                                                {c.choice_text}
+                                            </span>
+                                        )}
+                                    </motion.button>
+                                ))}
+                            </div>
+                        )}
 
                         {myResult && (
                             <motion.p

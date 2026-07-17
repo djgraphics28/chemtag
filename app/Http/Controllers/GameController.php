@@ -122,6 +122,23 @@ class GameController extends Controller
         return response()->json($this->service->formatQuestion($nextQuestion, $session));
     }
 
+    /**
+     * 4 Pics 1 Word hint: reveal one letter of the answer for a score cost.
+     */
+    public function hint(Request $request, GameSession $session): JsonResponse
+    {
+        abort_if($session->user_id !== $request->user()->id, 403);
+        abort_if($session->status !== 'in_progress', 422, 'Session is not in progress.');
+
+        $validated = $request->validate([
+            'position' => ['required', 'integer', 'min:0'],
+        ]);
+
+        return response()->json(
+            $this->service->revealHintLetter($session, $validated['position'])
+        );
+    }
+
     public function results(Request $request, GameSession $session): Response
     {
         abort_if($session->user_id !== $request->user()->id, 403);

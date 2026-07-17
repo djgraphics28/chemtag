@@ -198,9 +198,10 @@ class BattleController extends Controller
 
         $validated = $request->validate([
             'choice_id' => ['nullable', 'integer'],
+            'word' => ['nullable', 'string', 'max:60'],
         ]);
 
-        $result = $this->service->submitAnswer($room, $request->user(), $validated['choice_id'] ?? null);
+        $result = $this->service->submitAnswer($room, $request->user(), $validated['choice_id'] ?? null, $validated['word'] ?? null);
 
         return response()->json($result);
     }

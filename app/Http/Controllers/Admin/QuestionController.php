@@ -283,11 +283,11 @@ class QuestionController extends Controller
             $preview = implode(' · ', array_slice($errors, 0, 3));
             $more = count($errors) > 3 ? ' (and '.(count($errors) - 3).' more)' : '';
 
-            return redirect()->route('admin.questions.index')
+            return back(fallback: route('admin.questions.index'))
                 ->with('error', "Imported {$imported} question(s), skipped {$skipped}. {$preview}{$more}");
         }
 
-        return redirect()->route('admin.questions.index')
+        return back(fallback: route('admin.questions.index'))
             ->with('success', "Successfully imported {$imported} question(s).");
     }
 
@@ -350,7 +350,7 @@ class QuestionController extends Controller
 
     public function index(Request $request): Response
     {
-        $questions = Question::with('gameMode:id,code,title', 'topic:id,name', 'choices')
+        $questions = Question::with('gameMode:id,code,title', 'topic:id,name', 'choices', 'media')
             ->when($request->search, fn ($q, $s) => $q->where('prompt_text', 'like', "%{$s}%"))
             ->when($request->game_mode_id, fn ($q, $id) => $q->where('game_mode_id', $id))
             ->when($request->topic_id, fn ($q, $id) => $q->where('topic_id', $id))
@@ -360,7 +360,7 @@ class QuestionController extends Controller
             ->through(fn (Question $q) => [
                 'id' => $q->id,
                 'prompt_text' => $q->prompt_text,
-                'prompt_image_path' => $q->prompt_image_path,
+                'prompt_image_path' => $q->promptImageUrl(),
                 'points' => $q->points,
                 'is_active' => $q->is_active,
                 'game_mode' => $q->gameMode?->only(['id', 'code', 'title']),
@@ -376,9 +376,10 @@ class QuestionController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
         return Inertia::render('admin/questions/form', [
+            'filters' => $request->only(['search', 'game_mode_id', 'topic_id', 'page']),
             'game_modes' => GameMode::where('is_active', true)->get(['id', 'code', 'title']),
             'topics' => Topic::orderBy('order')->get(['id', 'name', 'order', 'questions_per_game']),
         ]);
@@ -390,14 +391,18 @@ class QuestionController extends Controller
             'game_mode_id' => ['required', 'exists:game_modes,id'],
             'topic_id' => ['required', 'exists:topics,id'],
             'prompt_text' => ['nullable', 'string', 'max:1000'],
-            'prompt_image_path' => ['nullable', 'string', 'max:500'],
+            'prompt_image' => ['nullable', 'image', 'max:4096'],
+            'clue_images' => ['nullable', 'array', 'max:4'],
+            'clue_images.*' => ['nullable', 'image', 'max:4096'],
+            'prompt_smiles' => ['nullable', 'string', 'max:20000'],
             'explanation' => ['nullable', 'string', 'max:2000'],
             'points' => ['integer', 'min:10', 'max:1000'],
             'time_limit_seconds' => ['integer', 'min:5', 'max:120'],
             'is_active' => ['boolean'],
-            'choices' => ['required', 'array', 'min:2', 'max:6'],
+            'choices' => ['required', 'array', 'min:1', 'max:6'],
             'choices.*.choice_text' => ['nullable', 'string', 'max:500'],
-            'choices.*.choice_image_path' => ['nullable', 'string', 'max:500'],
+            'choices.*.choice_image' => ['nullable', 'image', 'max:4096'],
+            'choices.*.choice_smiles' => ['nullable', 'string', 'max:20000'],
             'choices.*.is_correct' => ['boolean'],
             'choices.*.feedback_text' => ['nullable', 'string', 'max:1000'],
             'choices.*.sort_order' => ['integer'],
@@ -407,34 +412,56 @@ class QuestionController extends Controller
             $question = Question::create([
                 'game_mode_id' => $data['game_mode_id'],
                 'topic_id' => $data['topic_id'],
-                'prompt_text' => $data['prompt_text'],
-                'prompt_image_path' => $data['prompt_image_path'],
-                'explanation' => $data['explanation'],
+                'prompt_text' => $data['prompt_text'] ?? null,
+                'prompt_smiles' => $data['prompt_smiles'] ?? null,
+                'explanation' => $data['explanation'] ?? null,
                 'points' => $data['points'] ?? 100,
                 'time_limit_seconds' => $data['time_limit_seconds'] ?? 20,
                 'is_active' => $data['is_active'] ?? true,
                 'created_by' => $request->user()->id,
             ]);
 
-            foreach ($data['choices'] as $choice) {
-                $question->choices()->create($choice);
+            if ($request->hasFile('prompt_image')) {
+                $question->addMediaFromRequest('prompt_image')->toMediaCollection('prompt_image');
+            }
+
+            // 4 Pics 1 Word clue images: each upload replaces its 1-4 grid slot
+            foreach ($request->file('clue_images', []) as $slot => $file) {
+                $question->getMedia('clue_images')
+                    ->filter(fn ($media) => (int) $media->getCustomProperty('slot', -1) === (int) $slot)
+                    ->each(fn ($media) => $media->delete());
+
+                $question->addMedia($file)
+                    ->withCustomProperties(['slot' => (int) $slot])
+                    ->toMediaCollection('clue_images');
+            }
+
+            foreach (array_values($data['choices']) as $index => $choiceData) {
+                $choice = $question->choices()->create($choiceData);
+
+                if ($file = $request->file("choices.{$index}.choice_image")) {
+                    $choice->addMedia($file)->toMediaCollection('choice_image');
+                }
             }
         });
 
-        return redirect()->route('admin.questions.index')->with('success', 'Question created.');
+        return redirect()->route('admin.questions.index', $this->indexFilters($request))->with('success', 'Question created.');
     }
 
-    public function edit(Question $question): Response
+    public function edit(Request $request, Question $question): Response
     {
-        $question->load('choices');
+        $question->load('choices.media', 'media');
 
         return Inertia::render('admin/questions/form', [
+            'filters' => $request->only(['search', 'game_mode_id', 'topic_id', 'page']),
             'question' => [
                 'id' => $question->id,
                 'game_mode_id' => $question->game_mode_id,
                 'topic_id' => $question->topic_id,
                 'prompt_text' => $question->prompt_text,
-                'prompt_image_path' => $question->prompt_image_path,
+                'prompt_image_url' => $question->promptImageUrl(),
+                'clue_image_urls' => $question->clueImageUrls(),
+                'prompt_smiles' => $question->prompt_smiles,
                 'explanation' => $question->explanation,
                 'points' => $question->points,
                 'time_limit_seconds' => $question->time_limit_seconds,
@@ -442,7 +469,8 @@ class QuestionController extends Controller
                 'choices' => $question->choices->map(fn (QuestionChoice $c) => [
                     'id' => $c->id,
                     'choice_text' => $c->choice_text,
-                    'choice_image_path' => $c->choice_image_path,
+                    'choice_image_url' => $c->choiceImageUrl(),
+                    'choice_smiles' => $c->choice_smiles,
                     'is_correct' => (bool) $c->is_correct,
                     'feedback_text' => $c->feedback_text,
                     'sort_order' => $c->sort_order,
@@ -459,51 +487,95 @@ class QuestionController extends Controller
             'game_mode_id' => ['required', 'exists:game_modes,id'],
             'topic_id' => ['required', 'exists:topics,id'],
             'prompt_text' => ['nullable', 'string', 'max:1000'],
-            'prompt_image_path' => ['nullable', 'string', 'max:500'],
+            'prompt_image' => ['nullable', 'image', 'max:4096'],
+            'clue_images' => ['nullable', 'array', 'max:4'],
+            'clue_images.*' => ['nullable', 'image', 'max:4096'],
+            'prompt_smiles' => ['nullable', 'string', 'max:20000'],
             'explanation' => ['nullable', 'string', 'max:2000'],
             'points' => ['integer', 'min:10', 'max:1000'],
             'time_limit_seconds' => ['integer', 'min:5', 'max:120'],
             'is_active' => ['boolean'],
-            'choices' => ['required', 'array', 'min:2', 'max:6'],
+            'choices' => ['required', 'array', 'min:1', 'max:6'],
             'choices.*.id' => ['nullable', 'integer'],
             'choices.*.choice_text' => ['nullable', 'string', 'max:500'],
-            'choices.*.choice_image_path' => ['nullable', 'string', 'max:500'],
+            'choices.*.choice_image' => ['nullable', 'image', 'max:4096'],
+            'choices.*.choice_smiles' => ['nullable', 'string', 'max:20000'],
             'choices.*.is_correct' => ['boolean'],
             'choices.*.feedback_text' => ['nullable', 'string', 'max:1000'],
             'choices.*.sort_order' => ['integer'],
         ]);
 
-        DB::transaction(function () use ($data, $question): void {
+        DB::transaction(function () use ($data, $question, $request): void {
             $question->update([
                 'game_mode_id' => $data['game_mode_id'],
                 'topic_id' => $data['topic_id'],
-                'prompt_text' => $data['prompt_text'],
-                'prompt_image_path' => $data['prompt_image_path'],
-                'explanation' => $data['explanation'],
+                'prompt_text' => $data['prompt_text'] ?? null,
+                'prompt_smiles' => $data['prompt_smiles'] ?? null,
+                'explanation' => $data['explanation'] ?? null,
                 'points' => $data['points'],
                 'time_limit_seconds' => $data['time_limit_seconds'],
                 'is_active' => $data['is_active'],
             ]);
 
+            if ($request->hasFile('prompt_image')) {
+                // singleFile collection: the new upload replaces the old one
+                $question->addMediaFromRequest('prompt_image')->toMediaCollection('prompt_image');
+            }
+
+            // 4 Pics 1 Word clue images: each upload replaces its 1-4 grid slot
+            foreach ($request->file('clue_images', []) as $slot => $file) {
+                $question->getMedia('clue_images')
+                    ->filter(fn ($media) => (int) $media->getCustomProperty('slot', -1) === (int) $slot)
+                    ->each(fn ($media) => $media->delete());
+
+                $question->addMedia($file)
+                    ->withCustomProperties(['slot' => (int) $slot])
+                    ->toMediaCollection('clue_images');
+            }
+
             $incomingIds = collect($data['choices'])->pluck('id')->filter()->all();
             $question->choices()->whereNotIn('id', $incomingIds)->delete();
 
-            foreach ($data['choices'] as $choiceData) {
-                if (! empty($choiceData['id'])) {
-                    QuestionChoice::find($choiceData['id'])?->update($choiceData);
+            foreach (array_values($data['choices']) as $index => $choiceData) {
+                $choice = ! empty($choiceData['id'])
+                    ? QuestionChoice::find($choiceData['id'])
+                    : null;
+
+                if ($choice) {
+                    $choice->update($choiceData);
                 } else {
-                    $question->choices()->create($choiceData);
+                    $choice = $question->choices()->create($choiceData);
+                }
+
+                if ($file = $request->file("choices.{$index}.choice_image")) {
+                    $choice->addMedia($file)->toMediaCollection('choice_image');
                 }
             }
         });
 
-        return redirect()->route('admin.questions.index')->with('success', 'Question updated.');
+        return redirect()->route('admin.questions.index', $this->indexFilters($request))->with('success', 'Question updated.');
+    }
+
+    /**
+     * Index filters carried through the form so saving returns to the
+     * same filtered/paginated view.
+     *
+     * @return array<string, string>
+     */
+    private function indexFilters(Request $request): array
+    {
+        $filters = (array) $request->input('filters', []);
+
+        return array_filter(
+            array_intersect_key($filters, array_flip(['search', 'game_mode_id', 'topic_id', 'page'])),
+            fn ($value) => $value !== null && $value !== ''
+        );
     }
 
     public function destroy(Question $question): RedirectResponse
     {
         $question->delete();
 
-        return redirect()->route('admin.questions.index')->with('success', 'Question deleted.');
+        return back(fallback: route('admin.questions.index'))->with('success', 'Question deleted.');
     }
 }

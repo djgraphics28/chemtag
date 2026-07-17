@@ -31,13 +31,42 @@ class GameSessionService
         return count($session->question_ids ?? []);
     }
 
+    /** Score deducted each time a 4-Pics-1-Word hint letter is revealed. */
+    public const HINT_COST = 25;
+
+    /**
+     * Reveal the answer letter at the given slot for the current
+     * 4-Pics-1-Word question, deducting HINT_COST from the session score.
+     *
+     * @return array{position: int, letter: string, cost: int, score: int}
+     */
+    public function revealHintLetter(GameSession $session, int $position): array
+    {
+        $question = $this->getNextQuestion($session);
+        abort_if($question === null, 422, 'No active question.');
+        abort_if($question->gameMode->code !== 'pattern_clue', 422, 'Hints are only available for clue questions.');
+
+        $answer = $question->clueAnswer();
+        abort_if($answer === null || $position >= strlen($answer), 422, 'Invalid hint position.');
+
+        $session->update(['score' => max(0, $session->score - self::HINT_COST)]);
+
+        return [
+            'position' => $position,
+            'letter' => $answer[$position],
+            'cost' => self::HINT_COST,
+            'score' => $session->score,
+        ];
+    }
+
     /**
      * @return array{correct: bool, explanation: string|null, points_earned: int, correct_choice_id: int|null, session: array<string,mixed>, is_game_over: bool}
      */
     public function submitAnswer(
         GameSession $session,
         ?int $choiceId,
-        int $timeTakenSeconds
+        int $timeTakenSeconds,
+        ?string $word = null
     ): array {
         // Resolve the question being answered
         if ($choiceId !== null) {
@@ -52,18 +81,30 @@ class GameSessionService
                 'Choice does not belong to this session.'
             );
         } else {
-            // Timeout: find the current unanswered question
+            // Word answer or timeout: resolve the current unanswered question
             $question = $this->getNextQuestion($session);
-            abort_if($question === null, 422, 'No active question to time out.');
+            abort_if($question === null, 422, 'No active question to answer.');
         }
 
         if ($session->answers()->where('question_id', $question->id)->exists()) {
             abort(422, 'Question already answered.');
         }
 
-        $isCorrect = $choiceId !== null && ($choice->is_correct ?? false);
-        $pointsEarned = 0;
+        $isTimeout = $choiceId === null && $word === null;
         $correctChoiceId = $question->choices()->where('is_correct', true)->value('id');
+
+        // 4 Pics 1 Word answers arrive as a typed word instead of a choice
+        if ($word !== null && $choiceId === null) {
+            $isCorrect = $question->clueAnswer() !== null
+                && Question::normalizeWord($word) === $question->clueAnswer();
+
+            // Record against the correct choice so per-choice stats stay consistent
+            $choiceId = $isCorrect ? $correctChoiceId : null;
+        } else {
+            $isCorrect = $choiceId !== null && ($choice->is_correct ?? false);
+        }
+
+        $pointsEarned = 0;
 
         if ($isCorrect) {
             $timeBonus = max(0, $question->time_limit_seconds - $timeTakenSeconds) * 5;
@@ -109,7 +150,8 @@ class GameSessionService
 
         return [
             'is_correct' => $isCorrect,
-            'timed_out' => $choiceId === null,
+            'timed_out' => $isTimeout,
+            'correct_word' => $word !== null || $isTimeout ? $question->clueAnswer() : null,
             'explanation' => $question->explanation,
             'points_earned' => $pointsEarned,
             'correct_choice_id' => $correctChoiceId,
@@ -132,19 +174,28 @@ class GameSessionService
         $total = $this->getTotalQuestions($session);
         $answered = $session->answers()->count();
 
+        // 4 Pics 1 Word: choices would leak the answer, so the client gets
+        // the clue images plus a letter pool instead.
+        $isCluePuzzle = $question->gameMode->code === 'pattern_clue';
+
         return [
             'question' => [
                 'id' => $question->id,
                 'game_mode_code' => $question->gameMode->code,
                 'prompt_text' => $question->prompt_text,
-                'prompt_image_path' => $question->prompt_image_path,
+                'prompt_image_path' => $question->promptImageUrl(),
+                'prompt_smiles' => $question->prompt_smiles,
+                'clue_image_urls' => $isCluePuzzle ? $question->clueImageUrls() : [],
+                'word_length' => $isCluePuzzle ? strlen((string) $question->clueAnswer()) : null,
+                'letters' => $isCluePuzzle ? $question->clueLetterPool() : null,
                 'time_limit_seconds' => $question->time_limit_seconds,
                 'points' => $question->points,
             ],
-            'choices' => $question->choices->shuffle()->map(fn (QuestionChoice $c) => [
+            'choices' => $isCluePuzzle ? [] : $question->choices->shuffle()->map(fn (QuestionChoice $c) => [
                 'id' => $c->id,
                 'choice_text' => $c->choice_text,
-                'choice_image_path' => $c->choice_image_path,
+                'choice_image_path' => $c->choiceImageUrl(),
+                'choice_smiles' => $c->choice_smiles,
             ])->values(),
             'progress' => [
                 'answered' => $answered,

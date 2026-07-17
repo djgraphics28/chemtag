@@ -24,6 +24,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('sessions/{session}/play', [GameController::class, 'play'])->name('sessions.show');
         Route::get('sessions/{session}/question', [GameController::class, 'currentQuestion'])->name('sessions.question');
         Route::post('sessions/{session}/answers', [AnswerController::class, 'store'])->name('sessions.answers.store');
+        Route::post('sessions/{session}/hint', [GameController::class, 'hint'])->name('sessions.hint');
         Route::get('sessions/{session}/results', [GameController::class, 'results'])->name('sessions.results');
         Route::get('leaderboard', [GameController::class, 'leaderboard'])->name('leaderboard');
     });
