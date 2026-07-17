@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion';
-import { Flame, Volume2, VolumeX } from 'lucide-react';
+import { DoorOpen, Flame, Volume2, VolumeX } from 'lucide-react';
+import { useCountUp } from '@/hooks/use-count-up';
+import type { Progress, SessionState } from '@/types/game';
 import { GameProgressBar } from './game-progress-bar';
 import { HeartsDisplay } from './hearts-display';
 import { RadialTimer } from './radial-timer';
-import { useCountUp } from '@/hooks/use-count-up';
-import type { Progress, SessionState } from '@/types/game';
 
 interface GameHudProps {
     session: SessionState;
@@ -13,14 +13,29 @@ interface GameHudProps {
     timeLimitSeconds: number;
     muted?: boolean;
     onToggleMuted?: () => void;
+    /** Opens the exit-game confirmation. */
+    onExit?: () => void;
 }
 
-export function GameHud({ session, progress, secondsLeft, timeLimitSeconds, muted, onToggleMuted }: GameHudProps) {
+export function GameHud({
+    session,
+    progress,
+    secondsLeft,
+    timeLimitSeconds,
+    muted,
+    onToggleMuted,
+    onExit,
+}: GameHudProps) {
     const displayScore = useCountUp(session.score);
 
     return (
         <header className="flex items-center gap-4 px-4 py-3">
-            <RadialTimer secondsLeft={secondsLeft} total={timeLimitSeconds} size={56} strokeWidth={5} />
+            <RadialTimer
+                secondsLeft={secondsLeft}
+                total={timeLimitSeconds}
+                size={56}
+                strokeWidth={5}
+            />
 
             <div className="flex flex-1 flex-col gap-1.5">
                 <div className="flex items-center justify-between">
@@ -36,18 +51,29 @@ export function GameHud({ session, progress, secondsLeft, timeLimitSeconds, mute
                             >
                                 <motion.span
                                     animate={{ scale: [1, 1.2, 1] }}
-                                    transition={{ repeat: Infinity, duration: 0.8, ease: 'easeInOut' }}
+                                    transition={{
+                                        repeat: Infinity,
+                                        duration: 0.8,
+                                        ease: 'easeInOut',
+                                    }}
                                 >
-                                    <Flame size={14} className="fill-game-warning" />
+                                    <Flame
+                                        size={14}
+                                        className="fill-game-warning"
+                                    />
                                 </motion.span>
                                 {session.streak_count}x
                             </motion.span>
                         )}
                         <motion.span
                             key={session.score}
-                            animate={session.score > 0 ? { scale: [1, 1.25, 1] } : undefined}
+                            animate={
+                                session.score > 0
+                                    ? { scale: [1, 1.25, 1] }
+                                    : undefined
+                            }
                             transition={{ duration: 0.3 }}
-                            className="text-sm font-bold tabular-nums text-foreground"
+                            className="text-sm font-bold text-foreground tabular-nums"
                         >
                             {displayScore.toLocaleString()}
                         </motion.span>
@@ -55,15 +81,34 @@ export function GameHud({ session, progress, secondsLeft, timeLimitSeconds, mute
                             <button
                                 type="button"
                                 onClick={onToggleMuted}
-                                aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
+                                aria-label={
+                                    muted ? 'Unmute sounds' : 'Mute sounds'
+                                }
                                 className="text-foreground/40 transition-colors hover:text-foreground"
                             >
-                                {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                                {muted ? (
+                                    <VolumeX size={16} />
+                                ) : (
+                                    <Volume2 size={16} />
+                                )}
+                            </button>
+                        )}
+                        {onExit && (
+                            <button
+                                type="button"
+                                onClick={onExit}
+                                aria-label="Exit game"
+                                className="text-foreground/40 transition-colors hover:text-game-danger"
+                            >
+                                <DoorOpen size={16} />
                             </button>
                         )}
                     </div>
                 </div>
-                <GameProgressBar answered={progress.answered} total={progress.total} />
+                <GameProgressBar
+                    answered={progress.answered}
+                    total={progress.total}
+                />
             </div>
         </header>
     );

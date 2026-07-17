@@ -11,6 +11,15 @@ import { GameHud } from '@/components/game/game-hud';
 import { GameIntro } from '@/components/game/game-intro';
 import { ScorePopup } from '@/components/game/score-popup';
 import { WordBuilder } from '@/components/game/word-builder';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { useCountdown } from '@/hooks/use-countdown';
 import { useGameSounds } from '@/hooks/use-game-sounds';
 import { apiFetch } from '@/lib/api-fetch';
@@ -41,6 +50,8 @@ export default function Play({
     const [selectedId, setSelectedId] = useState<number | null>(null);
     // Fun 5-second hype screen before the very first question
     const [showIntro, setShowIntro] = useState(progress.answered === 0);
+    const [showExitConfirm, setShowExitConfirm] = useState(false);
+    const [isExiting, setIsExiting] = useState(false);
     const [result, setResult] = useState<AnswerResult | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [shake, setShake] = useState(0);
@@ -169,6 +180,15 @@ export default function Play({
         submitAnswer(choiceId);
     }
 
+    function exitGame() {
+        setIsExiting(true);
+        router.post(
+            `/game/sessions/${session.id}/quit`,
+            {},
+            { onError: () => setIsExiting(false) },
+        );
+    }
+
     const isUrgent = secondsLeft > 0 && secondsLeft <= 5 && !result;
 
     return (
@@ -207,7 +227,36 @@ export default function Play({
                 timeLimitSeconds={question.time_limit_seconds}
                 muted={sounds.muted}
                 onToggleMuted={sounds.toggleMuted}
+                onExit={() => setShowExitConfirm(true)}
             />
+
+            <Dialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Exit this game?</DialogTitle>
+                        <DialogDescription>
+                            Your run will end here — the score you've earned so
+                            far ({session.score.toLocaleString()} pts) is kept
+                            in your history, but the game counts as unfinished.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowExitConfirm(false)}
+                        >
+                            Keep playing
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            disabled={isExiting}
+                            onClick={exitGame}
+                        >
+                            Exit game
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <main className="relative mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-6">
                 {/* Celebration overlays */}

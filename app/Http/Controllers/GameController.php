@@ -122,6 +122,21 @@ class GameController extends Controller
         return response()->json($this->service->formatQuestion($nextQuestion, $session));
     }
 
+    /**
+     * Player forfeits an ongoing game: the session ends as failed and
+     * they land on the results screen with the score earned so far.
+     */
+    public function quit(Request $request, GameSession $session): RedirectResponse
+    {
+        abort_if($session->user_id !== $request->user()->id, 403);
+
+        if ($session->status === 'in_progress') {
+            $session->update(['status' => 'failed', 'ended_at' => now()]);
+        }
+
+        return redirect()->route('game.sessions.results', $session);
+    }
+
     public function results(Request $request, GameSession $session): Response
     {
         abort_if($session->user_id !== $request->user()->id, 403);
