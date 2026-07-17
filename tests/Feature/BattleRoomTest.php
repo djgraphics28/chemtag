@@ -5,6 +5,7 @@ use App\Models\GameRoom;
 use App\Models\Question;
 use App\Models\Topic;
 use App\Models\User;
+use Spatie\Permission\Models\Role;
 
 use function Pest\Laravel\actingAs;
 
@@ -76,6 +77,241 @@ it('rejects joining an unknown room code', function (): void {
     actingAs($this->guest)
         ->post('/battle/join', ['code' => 'ZZZZZZ'])
         ->assertSessionHas('error');
+});
+
+it('lets the host kick a player from a waiting room', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+    actingAs($this->guest)->post('/battle/join', ['code' => $room->code]);
+
+    actingAs($this->host)
+        ->post("/battle/rooms/{$room->code}/kick", ['user_id' => $this->guest->id])
+        ->assertRedirect();
+
+    expect($room->players()->where('user_id', $this->guest->id)->exists())->toBeFalse();
+});
+
+it('forbids non-hosts from kicking players', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+    actingAs($this->guest)->post('/battle/join', ['code' => $room->code]);
+
+    actingAs($this->guest)
+        ->post("/battle/rooms/{$room->code}/kick", ['user_id' => $this->host->id])
+        ->assertForbidden();
+
+    expect($room->players()->count())->toBe(2);
+});
+
+it('stops the host from kicking themselves', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+
+    actingAs($this->host)
+        ->post("/battle/rooms/{$room->code}/kick", ['user_id' => $this->host->id])
+        ->assertUnprocessable();
+});
+
+it('blocks kicks once the battle has started', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+    actingAs($this->guest)->post('/battle/join', ['code' => $room->code]);
+    actingAs($this->guest)->post("/battle/rooms/{$room->code}/ready");
+    actingAs($this->host)->post("/battle/rooms/{$room->code}/start");
+
+    actingAs($this->host)
+        ->post("/battle/rooms/{$room->code}/kick", ['user_id' => $this->guest->id])
+        ->assertUnprocessable();
+});
+
+function makeAdmin(): User
+{
+    Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+    $admin = User::factory()->create();
+    $admin->assignRole('admin');
+
+    return $admin;
+}
+
+it('lets an admin observe a room without appearing as a player', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+    $admin = makeAdmin();
+
+    actingAs($admin)
+        ->get("/battle/rooms/{$room->code}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('battle/room')
+            ->where('is_observer', true)
+            ->has('players', 1));
+
+    expect($room->players()->where('user_id', $admin->id)->exists())->toBeFalse();
+});
+
+it('sends admins straight to observer mode when they use a join code', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+    $admin = makeAdmin();
+
+    actingAs($admin)
+        ->post('/battle/join', ['code' => $room->code])
+        ->assertRedirect(route('battle.rooms.show', $room));
+
+    expect($room->players()->where('user_id', $admin->id)->exists())->toBeFalse();
+});
+
+it('removes an admin from the roster if they were previously a player', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+
+    // Admin ended up in the roster before observer mode existed
+    $admin = makeAdmin();
+    $room->players()->create([
+        'user_id' => $admin->id,
+        'joined_at' => now(),
+    ]);
+
+    actingAs($admin)
+        ->get("/battle/rooms/{$room->code}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('is_observer', true)
+            ->has('players', 1));
+
+    expect($room->players()->where('user_id', $admin->id)->exists())->toBeFalse();
+});
+
+it('keeps an admin as a normal host in a room they created', function (): void {
+    $admin = makeAdmin();
+    $room = createRoom($admin, $this->gameMode, $this->topic);
+
+    actingAs($admin)
+        ->get("/battle/rooms/{$room->code}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('is_observer', false)
+            ->has('players', 1));
+
+    expect($room->players()->where('user_id', $admin->id)->exists())->toBeTrue();
+});
+
+it('lets an observing admin chat in the room', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+    $admin = makeAdmin();
+
+    actingAs($admin)
+        ->postJson("/battle/rooms/{$room->code}/chat", ['body' => 'Behave, everyone 👀'])
+        ->assertOk()
+        ->assertJsonPath('body', 'Behave, everyone 👀');
+
+    actingAs($admin)
+        ->getJson("/battle/rooms/{$room->code}/chat")
+        ->assertOk();
+});
+
+it('lets an observing admin watch rounds but keeps players auto-joining', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+    actingAs($this->guest)->post('/battle/join', ['code' => $room->code]);
+    actingAs($this->guest)->post("/battle/rooms/{$room->code}/ready");
+    actingAs($this->host)->post("/battle/rooms/{$room->code}/start");
+
+    $admin = makeAdmin();
+
+    // Admin can open a started room and poll rounds
+    actingAs($admin)
+        ->get("/battle/rooms/{$room->code}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('is_observer', true));
+    actingAs($admin)
+        ->getJson("/battle/rooms/{$room->code}/round")
+        ->assertOk();
+
+    // A regular player still cannot spectate a started room
+    $stranger = User::factory()->create();
+    actingAs($stranger)
+        ->get("/battle/rooms/{$room->code}")
+        ->assertRedirect(route('battle.lobby'));
+});
+
+it('lets room members chat and stores the history', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+    actingAs($this->guest)->post('/battle/join', ['code' => $room->code]);
+
+    actingAs($this->host)
+        ->postJson("/battle/rooms/{$room->code}/chat", ['body' => 'Good luck!'])
+        ->assertOk()
+        ->assertJsonPath('body', 'Good luck!')
+        ->assertJsonPath('user_id', $this->host->id);
+
+    actingAs($this->guest)
+        ->postJson("/battle/rooms/{$room->code}/chat", ['body' => 'You too 🔥']);
+
+    $history = actingAs($this->guest)
+        ->getJson("/battle/rooms/{$room->code}/chat")
+        ->assertOk()
+        ->json('messages');
+
+    expect($history)->toHaveCount(2)
+        ->and($history[0]['body'])->toBe('Good luck!')
+        ->and($history[1]['body'])->toBe('You too 🔥')
+        ->and($history[1]['name'])->toBe($this->guest->name);
+});
+
+it('keeps outsiders from reading or writing room chat', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+    $outsider = User::factory()->create();
+
+    actingAs($outsider)
+        ->postJson("/battle/rooms/{$room->code}/chat", ['body' => 'hi'])
+        ->assertForbidden();
+
+    actingAs($outsider)
+        ->getJson("/battle/rooms/{$room->code}/chat")
+        ->assertForbidden();
+});
+
+it('blocks chat spammers for 5 minutes', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+
+    foreach (range(1, 8) as $i) {
+        actingAs($this->host)
+            ->postJson("/battle/rooms/{$room->code}/chat", ['body' => "message {$i}"])
+            ->assertOk();
+    }
+
+    // Ninth message inside the burst window triggers the block
+    actingAs($this->host)
+        ->postJson("/battle/rooms/{$room->code}/chat", ['body' => 'spam'])
+        ->assertStatus(429);
+
+    // Still blocked even after the burst window has passed
+    $this->travel(1)->minute();
+    actingAs($this->host)
+        ->postJson("/battle/rooms/{$room->code}/chat", ['body' => 'still spam?'])
+        ->assertStatus(429);
+
+    // The block lifts after 5 minutes
+    $this->travel(5)->minutes();
+    actingAs($this->host)
+        ->postJson("/battle/rooms/{$room->code}/chat", ['body' => 'back again'])
+        ->assertOk();
+});
+
+it('rejects empty or oversized chat messages', function (): void {
+    $room = createRoom($this->host, $this->gameMode, $this->topic);
+
+    actingAs($this->host)
+        ->postJson("/battle/rooms/{$room->code}/chat", ['body' => ''])
+        ->assertUnprocessable();
+
+    actingAs($this->host)
+        ->postJson("/battle/rooms/{$room->code}/chat", ['body' => str_repeat('a', 501)])
+        ->assertUnprocessable();
+});
+
+it('serves a player profile summary for the in-game popup', function (): void {
+    actingAs($this->guest)
+        ->getJson("/players/{$this->host->username}/summary")
+        ->assertOk()
+        ->assertJsonPath('player.username', $this->host->username)
+        ->assertJsonStructure([
+            'player' => ['id', 'name', 'username', 'avatar_path', 'xp_total', 'joined_at'],
+            'stats' => ['games_played', 'games_completed', 'best_score', 'avg_score', 'accuracy', 'fastest_correct_seconds'],
+        ]);
 });
 
 it('toggles ready state', function (): void {

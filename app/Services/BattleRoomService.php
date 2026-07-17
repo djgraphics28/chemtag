@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\BattleChatMessage;
 use App\Events\BattleLobbyUpdated;
 use App\Events\BattlePlayerAnswered;
 use App\Events\BattleRoomUpdated;
@@ -9,12 +10,15 @@ use App\Events\BattleRoundEnded;
 use App\Events\BattleStarted;
 use App\Models\GameRoom;
 use App\Models\GameRoomAnswer;
+use App\Models\GameRoomMessage;
 use App\Models\GameRoomPlayer;
 use App\Models\GameRoomRound;
 use App\Models\Question;
 use App\Models\QuestionChoice;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
 class BattleRoomService
@@ -132,6 +136,113 @@ class BattleRoomService
         if ($room->host_id === $user->id) {
             $room->update(['host_id' => $remaining->user_id]);
         }
+
+        $this->broadcastRoomState($room);
+        broadcast(new BattleLobbyUpdated);
+    }
+
+    /**
+     * Recent chat history for a member joining or reopening the room.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function chatMessages(GameRoom $room, User $user): array
+    {
+        abort_unless($this->canUseChat($room, $user), 403);
+
+        return $room->messages()
+            ->with('user:id,name,avatar_path')
+            ->latest('id')
+            ->limit(50)
+            ->get()
+            ->reverse()
+            ->map(fn (GameRoomMessage $message) => $message->toChatPayload())
+            ->values()
+            ->all();
+    }
+
+    /** Messages allowed within CHAT_BURST_SECONDS before it counts as spam. */
+    public const CHAT_BURST_LIMIT = 8;
+
+    public const CHAT_BURST_SECONDS = 20;
+
+    /** How long a spammer is locked out of chat. */
+    public const CHAT_BLOCK_SECONDS = 300;
+
+    /**
+     * Store a chat message and broadcast it to everyone else in the room.
+     * Sending faster than the burst limit blocks the player for 5 minutes.
+     *
+     * @return array<string, mixed>
+     */
+    public function sendChatMessage(GameRoom $room, User $user, string $body): array
+    {
+        abort_unless($this->canUseChat($room, $user), 403, 'Only players in this room can chat.');
+
+        $this->enforceChatSpamBlock($user);
+
+        $message = $room->messages()->create([
+            'user_id' => $user->id,
+            'body' => $body,
+        ]);
+        $message->setRelation('user', $user);
+
+        $payload = $message->toChatPayload();
+        broadcast(new BattleChatMessage($room->code, $payload))->toOthers();
+
+        return $payload;
+    }
+
+    /**
+     * Room members can chat; admins may also chat while observing.
+     */
+    private function canUseChat(GameRoom $room, User $user): bool
+    {
+        return $room->players()->where('user_id', $user->id)->exists()
+            || $user->hasRole('admin');
+    }
+
+    /**
+     * Burst-rate spam guard: exceeding the burst limit puts a 5-minute
+     * block on the sender; sending while blocked keeps returning 429.
+     */
+    private function enforceChatSpamBlock(User $user): void
+    {
+        $blockKey = "battle-chat-block:{$user->id}";
+        $blockedUntil = Cache::get($blockKey);
+
+        if ($blockedUntil !== null) {
+            $minutesLeft = max(1, (int) ceil(($blockedUntil - now()->getTimestamp()) / 60));
+            abort(429, "You are blocked from chat for spamming. Try again in {$minutesLeft} min.");
+        }
+
+        $rateKey = "battle-chat-rate:{$user->id}";
+
+        if (RateLimiter::tooManyAttempts($rateKey, self::CHAT_BURST_LIMIT)) {
+            Cache::put(
+                $blockKey,
+                now()->addSeconds(self::CHAT_BLOCK_SECONDS)->getTimestamp(),
+                self::CHAT_BLOCK_SECONDS,
+            );
+            RateLimiter::clear($rateKey);
+
+            abort(429, 'You are blocked from chat for 5 minutes for spamming.');
+        }
+
+        RateLimiter::hit($rateKey, self::CHAT_BURST_SECONDS);
+    }
+
+    /**
+     * Host removes a player from the room before the battle starts.
+     */
+    public function kick(GameRoom $room, User $host, int $targetUserId): void
+    {
+        abort_if($room->host_id !== $host->id, 403, 'Only the host can kick players.');
+        abort_if($room->status !== 'waiting', 422, 'Players can only be kicked before the battle starts.');
+        abort_if($targetUserId === $host->id, 422, 'You cannot kick yourself.');
+
+        $player = $room->players()->where('user_id', $targetUserId)->firstOrFail();
+        $player->delete();
 
         $this->broadcastRoomState($room);
         broadcast(new BattleLobbyUpdated);

@@ -29,11 +29,13 @@ class SettingController extends Controller
             'app_favicon' => ['nullable', 'image', 'mimes:png,ico,svg', 'max:512'],
             'remove_logo' => ['boolean'],
             'remove_favicon' => ['boolean'],
+            'games_locked' => ['boolean'],
         ]);
 
         Setting::set('app_name', $data['app_name']);
         Setting::set('app_tagline', $data['app_tagline'] ?? null);
         Setting::set('footer_text', $data['footer_text'] ?? null);
+        Setting::set('games_locked', $request->boolean('games_locked') ? '1' : '0');
 
         $this->handleImage($request, 'app_logo', 'app_logo_path', (bool) ($data['remove_logo'] ?? false));
         $this->handleImage($request, 'app_favicon', 'app_favicon_path', (bool) ($data['remove_favicon'] ?? false));

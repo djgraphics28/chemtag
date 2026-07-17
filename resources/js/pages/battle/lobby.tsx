@@ -1,7 +1,15 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { echo } from '@laravel/echo-react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Plus, Shield, Swords, User, Users } from 'lucide-react';
+import {
+    ArrowRight,
+    Eye,
+    Plus,
+    Shield,
+    Swords,
+    User,
+    Users,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -44,9 +52,11 @@ export default function BattleLobby({
     topics,
     player_limits,
 }: LobbyProps) {
-    const { flash } = usePage<{
+    const { flash, auth } = usePage<{
         flash?: { success?: string; error?: string };
+        auth: { user: { roles?: string[] } | null };
     }>().props;
+    const isAdmin = auth?.user?.roles?.includes('admin') ?? false;
 
     useEffect(() => {
         if (flash?.success) {
@@ -508,16 +518,37 @@ export default function BattleLobby({
                                             {room.players_count}/
                                             {room.max_players}
                                         </span>
-                                        <Button
-                                            size="sm"
-                                            onClick={() =>
-                                                router.post('/battle/join', {
-                                                    code: room.code,
-                                                })
-                                            }
-                                        >
-                                            Join
-                                        </Button>
+                                        {isAdmin ? (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                asChild
+                                            >
+                                                <Link
+                                                    href={`/battle/rooms/${room.code}`}
+                                                >
+                                                    <Eye
+                                                        size={14}
+                                                        className="mr-1"
+                                                    />
+                                                    Observe
+                                                </Link>
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                size="sm"
+                                                onClick={() =>
+                                                    router.post(
+                                                        '/battle/join',
+                                                        {
+                                                            code: room.code,
+                                                        },
+                                                    )
+                                                }
+                                            >
+                                                Join
+                                            </Button>
+                                        )}
                                     </motion.div>
                                 );
                             })}

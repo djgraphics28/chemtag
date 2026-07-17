@@ -5,12 +5,47 @@ namespace App\Http\Controllers;
 use App\Models\GameSession;
 use App\Models\GameSessionAnswer;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class PlayerController extends Controller
 {
     public function show(User $user): Response
+    {
+        $recentSessions = GameSession::where('user_id', $user->id)
+            ->with('gameMode:id,code,title', 'topic:id,name')
+            ->whereIn('status', ['completed', 'failed'])
+            ->orderByDesc('ended_at')
+            ->limit(5)
+            ->get()
+            ->map(fn (GameSession $s) => [
+                'id' => $s->id,
+                'score' => $s->score,
+                'status' => $s->status,
+                'game_mode' => $s->gameMode?->only(['code', 'title']),
+                'topic' => $s->topic?->only(['name']),
+                'ended_at' => $s->ended_at?->diffForHumans(),
+            ]);
+
+        return Inertia::render('player/show', [
+            ...$this->profilePayload($user),
+            'recent_sessions' => $recentSessions,
+        ]);
+    }
+
+    /**
+     * Compact JSON profile used by in-game player popups.
+     */
+    public function summary(User $user): JsonResponse
+    {
+        return response()->json($this->profilePayload($user));
+    }
+
+    /**
+     * @return array{player: array<string, mixed>, stats: array<string, mixed>}
+     */
+    private function profilePayload(User $user): array
     {
         $stats = GameSession::where('user_id', $user->id)
             ->whereIn('status', ['completed', 'failed'])
@@ -35,22 +70,7 @@ class PlayerController extends Controller
             ? round(($answerStats->correct_answers / $answerStats->total_answers) * 100)
             : 0;
 
-        $recentSessions = GameSession::where('user_id', $user->id)
-            ->with('gameMode:id,code,title', 'topic:id,name')
-            ->whereIn('status', ['completed', 'failed'])
-            ->orderByDesc('ended_at')
-            ->limit(5)
-            ->get()
-            ->map(fn (GameSession $s) => [
-                'id' => $s->id,
-                'score' => $s->score,
-                'status' => $s->status,
-                'game_mode' => $s->gameMode?->only(['code', 'title']),
-                'topic' => $s->topic?->only(['name']),
-                'ended_at' => $s->ended_at?->diffForHumans(),
-            ]);
-
-        return Inertia::render('player/show', [
+        return [
             'player' => [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -67,7 +87,6 @@ class PlayerController extends Controller
                 'accuracy' => $accuracy,
                 'fastest_correct_seconds' => $answerStats->fastest_correct_seconds,
             ],
-            'recent_sessions' => $recentSessions,
-        ]);
+        ];
     }
 }

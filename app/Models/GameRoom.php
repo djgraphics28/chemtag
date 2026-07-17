@@ -49,4 +49,10 @@ class GameRoom extends Model
     {
         return $this->hasMany(GameRoomRound::class)->orderBy('round_number');
     }
+
+    /** @return HasMany<GameRoomMessage, $this> */
+    public function messages(): HasMany
+    {
+        return $this->hasMany(GameRoomMessage::class);
+    }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureGamesUnlocked;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
+            'games.unlocked' => EnsureGamesUnlocked::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

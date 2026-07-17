@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Lightbulb, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -15,21 +15,11 @@ interface WordBuilderProps {
     correctWord?: string | null;
     /** Called once when every slot is filled. */
     onSubmit: (word: string) => void;
-    /**
-     * Asks the server to reveal the answer letter for a slot (for a score
-     * cost). When omitted the hint button is hidden (e.g. battles).
-     */
-    onHint?: (
-        position: number,
-    ) => Promise<{ position: number; letter: string } | null>;
-    /** Score cost shown on the hint button. */
-    hintCost?: number;
 }
 
 /**
  * 4-Pics-1-Word style answer input: tap letter tiles to fill the slots;
- * the word auto-submits when the last slot is filled. Hint-revealed
- * letters lock into place and cannot be removed.
+ * the word auto-submits when the last slot is filled.
  */
 export function WordBuilder({
     letters,
@@ -38,31 +28,17 @@ export function WordBuilder({
     status = 'idle',
     correctWord,
     onSubmit,
-    onHint,
-    hintCost = 25,
 }: WordBuilderProps) {
     // Each slot holds the index of the pool tile placed there (or null).
     const [slots, setSlots] = useState<(number | null)[]>(
         Array(wordLength).fill(null),
     );
-    const [lockedSlots, setLockedSlots] = useState<Set<number>>(new Set());
     const [submitted, setSubmitted] = useState(false);
-    const [isHinting, setIsHinting] = useState(false);
 
     const usedTileIndexes = new Set(
         slots.filter((s): s is number => s !== null),
     );
     const interactive = !disabled && !submitted;
-
-    function commitSlots(next: (number | null)[]) {
-        setSlots(next);
-
-        // Auto-submit the moment the last slot is filled
-        if (next.every((s) => s !== null)) {
-            setSubmitted(true);
-            onSubmit(next.map((s) => letters[s as number]).join(''));
-        }
-    }
 
     function placeTile(tileIndex: number) {
         if (!interactive || usedTileIndexes.has(tileIndex)) {
@@ -77,11 +53,17 @@ export function WordBuilder({
 
         const next = [...slots];
         next[firstEmpty] = tileIndex;
-        commitSlots(next);
+        setSlots(next);
+
+        // Auto-submit the moment the last slot is filled
+        if (next.every((s) => s !== null)) {
+            setSubmitted(true);
+            onSubmit(next.map((s) => letters[s as number]).join(''));
+        }
     }
 
     function clearSlot(slotIndex: number) {
-        if (!interactive || lockedSlots.has(slotIndex)) {
+        if (!interactive) {
             return;
         }
 
@@ -98,65 +80,7 @@ export function WordBuilder({
             return;
         }
 
-        setSlots((prev) =>
-            prev.map((tile, i) => (lockedSlots.has(i) ? tile : null)),
-        );
-    }
-
-    async function requestHint() {
-        if (!interactive || isHinting || !onHint) {
-            return;
-        }
-
-        // Reveal the leftmost slot that isn't already a locked hint.
-        const target = slots.findIndex(
-            (tile, i) => tile === null && !lockedSlots.has(i),
-        );
-
-        if (target === -1) {
-            return;
-        }
-
-        setIsHinting(true);
-
-        try {
-            const hint = await onHint(target);
-
-            if (!hint) {
-                return;
-            }
-
-            const next = [...slots];
-
-            // Claim a pool tile with the revealed letter: prefer an unused
-            // one, otherwise reclaim it from a non-locked slot.
-            const placed = new Set(next.filter((s): s is number => s !== null));
-            let tile = letters.findIndex(
-                (letter, i) => letter === hint.letter && !placed.has(i),
-            );
-
-            if (tile === -1) {
-                const victim = next.findIndex(
-                    (s, i) =>
-                        s !== null &&
-                        letters[s] === hint.letter &&
-                        !lockedSlots.has(i),
-                );
-
-                if (victim === -1) {
-                    return;
-                }
-
-                tile = next[victim] as number;
-                next[victim] = null;
-            }
-
-            next[hint.position] = tile;
-            setLockedSlots((prev) => new Set(prev).add(hint.position));
-            commitSlots(next);
-        } finally {
-            setIsHinting(false);
-        }
+        setSlots(Array(wordLength).fill(null));
     }
 
     return (
@@ -168,9 +92,7 @@ export function WordBuilder({
                         key={i}
                         type="button"
                         whileTap={
-                            tileIndex !== null && !lockedSlots.has(i)
-                                ? { scale: 0.9 }
-                                : undefined
+                            tileIndex !== null ? { scale: 0.9 } : undefined
                         }
                         onClick={() => clearSlot(i)}
                         className={cn(
@@ -179,11 +101,9 @@ export function WordBuilder({
                                 ? 'border-game-correct bg-game-correct/20 text-game-correct'
                                 : status === 'wrong'
                                   ? 'border-game-danger bg-game-danger/20 text-game-danger'
-                                  : lockedSlots.has(i)
-                                    ? 'border-game-correct bg-game-correct/15 text-game-correct'
-                                    : tileIndex !== null
-                                      ? 'border-game-primary bg-white text-foreground'
-                                      : 'border-foreground/15 bg-foreground/5 text-transparent shadow-none',
+                                  : tileIndex !== null
+                                    ? 'border-game-primary bg-white text-foreground'
+                                    : 'border-foreground/15 bg-foreground/5 text-transparent shadow-none',
                         )}
                     >
                         {tileIndex !== null ? letters[tileIndex] : '·'}
@@ -204,7 +124,7 @@ export function WordBuilder({
                 </motion.p>
             )}
 
-            {/* Letter keyboard + action buttons */}
+            {/* Letter keyboard + clear button */}
             <div className="flex items-center justify-center gap-2">
                 <div className="flex max-w-xs flex-wrap items-center justify-center gap-1.5 sm:max-w-sm">
                     {letters.map((letter, tileIndex) => {
@@ -238,33 +158,16 @@ export function WordBuilder({
                     })}
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                    {onHint && (
-                        <motion.button
-                            type="button"
-                            whileTap={interactive ? { scale: 0.9 } : undefined}
-                            disabled={!interactive || isHinting}
-                            onClick={requestHint}
-                            aria-label={`Reveal a letter (costs ${hintCost} points)`}
-                            className="flex h-10 w-10 flex-col items-center justify-center rounded-lg bg-game-correct text-white shadow-[0_2px_0_0_rgb(0_0_0_/_0.15)] transition-all hover:brightness-105 disabled:opacity-40 sm:h-11 sm:w-11"
-                        >
-                            <Lightbulb size={16} />
-                            <span className="text-[9px] leading-tight font-bold">
-                                -{hintCost}
-                            </span>
-                        </motion.button>
-                    )}
-                    <motion.button
-                        type="button"
-                        whileTap={interactive ? { scale: 0.9 } : undefined}
-                        disabled={!interactive}
-                        onClick={clearAll}
-                        aria-label="Clear all letters"
-                        className="flex h-10 w-10 items-center justify-center rounded-lg bg-game-correct text-white shadow-[0_2px_0_0_rgb(0_0_0_/_0.15)] transition-all hover:brightness-105 disabled:opacity-40 sm:h-11 sm:w-11"
-                    >
-                        <Trash2 size={16} />
-                    </motion.button>
-                </div>
+                <motion.button
+                    type="button"
+                    whileTap={interactive ? { scale: 0.9 } : undefined}
+                    disabled={!interactive}
+                    onClick={clearAll}
+                    aria-label="Clear all letters"
+                    className="flex h-10 w-10 items-center justify-center self-end rounded-lg bg-game-correct text-white shadow-[0_2px_0_0_rgb(0_0_0_/_0.15)] transition-all hover:brightness-105 disabled:opacity-40 sm:h-11 sm:w-11"
+                >
+                    <Trash2 size={16} />
+                </motion.button>
             </div>
         </div>
     );

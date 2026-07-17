@@ -8,10 +8,15 @@ import {
     DoorOpen,
     Play,
     Shield,
+    MessageCircle,
     Swords,
     Users,
+    X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { PlayerProfileDialog } from '@/components/battle/player-profile-dialog';
+import {  RoomChat } from '@/components/battle/room-chat';
+import type {ChatMessage} from '@/components/battle/room-chat';
 import { MoleculeView } from '@/components/chem/molecule-view';
 import { ClueImageGrid } from '@/components/game/clue-image-grid';
 import { ClueTileGrid } from '@/components/game/clue-tile-grid';
@@ -135,6 +140,8 @@ interface RoomProps {
     players: BattlePlayer[];
     scoreboard: ScoreRow[] | null;
     current_round: RoundPayload | null;
+    /** Admin watching invisibly: not in the roster, chat-only interaction. */
+    is_observer?: boolean;
 }
 
 type Phase = 'waiting' | 'countdown' | 'question' | 'round_result' | 'finished';
@@ -145,6 +152,7 @@ export default function BattleRoom({
     players: initialPlayers,
     scoreboard: initialScoreboard,
     current_round,
+    is_observer = false,
 }: RoomProps) {
     const { auth } = usePage<{ auth: { user: { id: number } } }>().props;
     const myId = auth.user.id;
@@ -176,6 +184,10 @@ export default function BattleRoom({
         initialScoreboard ?? [],
     );
     const [copied, setCopied] = useState(false);
+    const [profileUsername, setProfileUsername] = useState<string | null>(null);
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    const [chatOpen, setChatOpen] = useState(false);
+    const [chatUnread, setChatUnread] = useState(0);
 
     const sounds = useGameSounds();
     const soundsRef = useRef(sounds);
@@ -186,6 +198,53 @@ export default function BattleRoom({
     const advanceSentRef = useRef(false);
 
     const serverNow = () => Date.now() + clockOffsetRef.current;
+
+    // ── Chat ─────────────────────────────────────────────────────
+    // Whether the chat is on screen right now (inline in the lobby,
+    // toggled drawer everywhere else) — read from the Echo handler.
+    const chatVisibleRef = useRef(false);
+
+    useEffect(() => {
+        chatVisibleRef.current = phase === 'waiting' || chatOpen;
+    }, [phase, chatOpen]);
+
+    const appendChatMessage = useCallback(
+        (message: ChatMessage, own = false) => {
+            setChatMessages((prev) =>
+                prev.some((m) => m.id === message.id)
+                    ? prev
+                    : [...prev.slice(-99), message],
+            );
+
+            if (!own && !chatVisibleRef.current) {
+                setChatUnread((n) => n + 1);
+            }
+        },
+        [],
+    );
+
+    useEffect(() => {
+        apiFetch<{ messages: ChatMessage[] }>(`/battle/rooms/${room.code}/chat`)
+            .then((data) => setChatMessages(data.messages))
+            .catch(() => undefined);
+    }, [room.code]);
+
+    const sendChatMessage = useCallback(
+        async (body: string) => {
+            const message = await apiFetch<ChatMessage>(
+                `/battle/rooms/${room.code}/chat`,
+                { method: 'POST', body: JSON.stringify({ body }) },
+            );
+
+            appendChatMessage(message, true);
+        },
+        [room.code, appendChatMessage],
+    );
+
+    function openChat() {
+        setChatOpen(true);
+        setChatUnread(0);
+    }
 
     const clearTimers = () => {
         timersRef.current.forEach(clearInterval);
@@ -285,6 +344,9 @@ export default function BattleRoom({
                     setPlayers(e.players);
                 },
             )
+            .listen('.chat.message', (e: ChatMessage) => {
+                appendChatMessage(e);
+            })
             .listen('.battle.started', () => {
                 soundsRef.current.playCorrect(0);
                 void fetchRound();
@@ -333,7 +395,7 @@ export default function BattleRoom({
             echo().leave(`battle.${room.code}`);
             clearTimers();
         };
-    }, [room.code, myId, fetchRound]);
+    }, [room.code, myId, fetchRound, appendChatMessage]);
 
     // Resume mid-battle on refresh
     useEffect(() => {
@@ -353,7 +415,12 @@ export default function BattleRoom({
 
     // ── Actions ──────────────────────────────────────────────────
     async function answer(choiceId: number | null, word?: string) {
-        if (selectedId !== null || myResult || phase !== 'question') {
+        if (
+            is_observer ||
+            selectedId !== null ||
+            myResult ||
+            phase !== 'question'
+        ) {
             return;
         }
 
@@ -384,6 +451,27 @@ export default function BattleRoom({
         });
     }
 
+    // Kicked by the host: the roster update no longer includes me
+    // (observers are never in the roster, so the check does not apply)
+    useEffect(() => {
+        if (
+            !is_observer &&
+            phase === 'waiting' &&
+            players.length > 0 &&
+            !players.some((p) => p.user_id === myId)
+        ) {
+            router.visit('/battle');
+        }
+    }, [players, phase, myId, is_observer]);
+
+    function kickPlayer(userId: number) {
+        router.post(
+            `/battle/rooms/${room.code}/kick`,
+            { user_id: userId },
+            { preserveScroll: true },
+        );
+    }
+
     const allOthersReady = players
         .filter((p) => !p.is_host)
         .every((p) => p.is_ready);
@@ -403,6 +491,46 @@ export default function BattleRoom({
     return (
         <>
             <Head title={room.name ?? `Battle ${room.code}`} />
+
+            <PlayerProfileDialog
+                username={profileUsername}
+                onClose={() => setProfileUsername(null)}
+            />
+
+            {/* Floating chat toggle outside the lobby (lobby shows it inline) */}
+            {phase !== 'waiting' && (
+                <>
+                    {chatOpen && (
+                        <div className="fixed right-4 bottom-20 z-50 w-80 max-w-[calc(100vw-2rem)]">
+                            <RoomChat
+                                messages={chatMessages}
+                                myId={myId}
+                                onSend={sendChatMessage}
+                                className="bg-background shadow-2xl"
+                            />
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        aria-label={chatOpen ? 'Close chat' : 'Open chat'}
+                        onClick={() =>
+                            chatOpen ? setChatOpen(false) : openChat()
+                        }
+                        className="fixed right-4 bottom-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-game-primary text-game-navy shadow-lg transition-transform hover:scale-105"
+                    >
+                        {chatOpen ? (
+                            <X size={20} />
+                        ) : (
+                            <MessageCircle size={20} />
+                        )}
+                        {!chatOpen && chatUnread > 0 && (
+                            <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-game-danger px-1 text-[10px] font-bold text-white">
+                                {chatUnread > 9 ? '9+' : chatUnread}
+                            </span>
+                        )}
+                    </button>
+                </>
+            )}
 
             <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col px-4 py-6">
                 {/* Top bar */}
@@ -432,18 +560,39 @@ export default function BattleRoom({
                             </span>
                         </span>
                     </div>
-                    {phase === 'waiting' && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-foreground/50 hover:text-foreground"
-                            onClick={() =>
-                                router.post(`/battle/rooms/${room.code}/leave`)
-                            }
-                        >
-                            <DoorOpen size={14} className="mr-1" />
-                            Leave
-                        </Button>
+                    {is_observer ? (
+                        <div className="flex shrink-0 items-center gap-2">
+                            <span className="rounded-full bg-game-primary/20 px-2.5 py-1 text-[11px] font-bold tracking-wide text-foreground/70 uppercase">
+                                Observing
+                            </span>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                asChild
+                                className="text-foreground/50 hover:text-foreground"
+                            >
+                                <Link href="/battle">
+                                    <DoorOpen size={14} className="mr-1" />
+                                    Leave
+                                </Link>
+                            </Button>
+                        </div>
+                    ) : (
+                        phase === 'waiting' && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-foreground/50 hover:text-foreground"
+                                onClick={() =>
+                                    router.post(
+                                        `/battle/rooms/${room.code}/leave`,
+                                    )
+                                }
+                            >
+                                <DoorOpen size={14} className="mr-1" />
+                                Leave
+                            </Button>
+                        )
                     )}
                 </div>
 
@@ -533,6 +682,20 @@ export default function BattleRoom({
                                                                     online={onlineIds.includes(
                                                                         p.user_id,
                                                                     )}
+                                                                    onSelect={() =>
+                                                                        setProfileUsername(
+                                                                            p.username,
+                                                                        )
+                                                                    }
+                                                                    onKick={
+                                                                        isHost &&
+                                                                        !p.is_host
+                                                                            ? () =>
+                                                                                  kickPlayer(
+                                                                                      p.user_id,
+                                                                                  )
+                                                                            : undefined
+                                                                    }
                                                                 />
                                                             ),
                                                         )}
@@ -581,6 +744,19 @@ export default function BattleRoom({
                                                 online={onlineIds.includes(
                                                     p.user_id,
                                                 )}
+                                                onSelect={() =>
+                                                    setProfileUsername(
+                                                        p.username,
+                                                    )
+                                                }
+                                                onKick={
+                                                    isHost && !p.is_host
+                                                        ? () =>
+                                                              kickPlayer(
+                                                                  p.user_id,
+                                                              )
+                                                        : undefined
+                                                }
                                             />
                                         ))}
                                     </AnimatePresence>
@@ -588,9 +764,21 @@ export default function BattleRoom({
                             )}
                         </div>
 
+                        {/* Chat */}
+                        <RoomChat
+                            messages={chatMessages}
+                            myId={myId}
+                            onSend={sendChatMessage}
+                        />
+
                         {/* Actions */}
                         <div className="mt-auto space-y-2 pb-4">
-                            {isHost ? (
+                            {is_observer ? (
+                                <p className="text-center text-xs text-foreground/40">
+                                    You're observing this room — players can't
+                                    see you, but your chat messages are visible.
+                                </p>
+                            ) : isHost ? (
                                 <>
                                     <Button
                                         size="lg"
@@ -729,7 +917,7 @@ export default function BattleRoom({
                                 key={round.round_number}
                                 letters={round.question.letters}
                                 wordLength={round.question.word_length ?? 0}
-                                disabled={!!myResult}
+                                disabled={!!myResult || is_observer}
                                 status={
                                     myResult
                                         ? myResult.is_correct
@@ -749,11 +937,13 @@ export default function BattleRoom({
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: i * 0.06 }}
                                         whileTap={
-                                            selectedId === null
+                                            selectedId === null && !is_observer
                                                 ? { scale: 0.95 }
                                                 : undefined
                                         }
-                                        disabled={selectedId !== null}
+                                        disabled={
+                                            selectedId !== null || is_observer
+                                        }
                                         onClick={() => answer(c.id)}
                                         className={cn(
                                             'flex min-h-[76px] items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition-colors',
@@ -901,7 +1091,11 @@ export default function BattleRoom({
                                 myTeam={myTeam}
                             />
                         )}
-                        <MiniScoreboard scoreboard={scoreboard} myId={myId} />
+                        <MiniScoreboard
+                            scoreboard={scoreboard}
+                            myId={myId}
+                            onSelect={setProfileUsername}
+                        />
 
                         <p className="text-center text-xs text-foreground/40">
                             {roundEnd.isFinal
@@ -1008,6 +1202,7 @@ export default function BattleRoom({
                                 scoreboard={scoreboard.slice(3)}
                                 myId={myId}
                                 startRank={4}
+                                onSelect={setProfileUsername}
                             />
                         )}
 
@@ -1042,20 +1237,37 @@ export default function BattleRoom({
 function WaitingPlayerCard({
     player,
     online,
+    onSelect,
+    onKick,
 }: {
     player: BattlePlayer;
     online: boolean;
+    /** Opens the player's profile popup. */
+    onSelect?: () => void;
+    /** Present only when the viewer is the host and may remove this player. */
+    onKick?: () => void;
 }) {
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
+            role={onSelect ? 'button' : undefined}
+            tabIndex={onSelect ? 0 : undefined}
+            onClick={onSelect}
+            onKeyDown={(e) => {
+                if (onSelect && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    onSelect();
+                }
+            }}
             className={cn(
                 'flex items-center gap-2.5 rounded-2xl border px-3 py-3',
                 player.is_ready || player.is_host
                     ? 'border-game-correct/40 bg-game-correct/10'
                     : 'border-foreground/10 bg-foreground/5',
+                onSelect &&
+                    'cursor-pointer transition-transform hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
             )}
         >
             <div className="relative">
@@ -1088,8 +1300,22 @@ function WaitingPlayerCard({
                           : 'Not ready'}
                 </p>
             </div>
-            {(player.is_ready || player.is_host) && (
-                <Check size={16} className="shrink-0 text-game-correct" />
+            {onKick ? (
+                <button
+                    type="button"
+                    aria-label={`Kick ${player.name}`}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onKick();
+                    }}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-foreground/40 transition-colors hover:bg-game-danger/15 hover:text-game-danger"
+                >
+                    <X size={14} />
+                </button>
+            ) : (
+                (player.is_ready || player.is_host) && (
+                    <Check size={16} className="shrink-0 text-game-correct" />
+                )
             )}
         </motion.div>
     );
@@ -1159,10 +1385,13 @@ function MiniScoreboard({
     scoreboard,
     myId,
     startRank = 1,
+    onSelect,
 }: {
     scoreboard: ScoreRow[];
     myId: number;
     startRank?: number;
+    /** Opens the clicked player's profile popup. */
+    onSelect?: (username: string) => void;
 }) {
     return (
         <div className="rounded-2xl border border-foreground/10 bg-foreground/5 p-3">
@@ -1173,9 +1402,23 @@ function MiniScoreboard({
                 {scoreboard.map((row, i) => (
                     <div
                         key={row.user_id}
+                        role={onSelect ? 'button' : undefined}
+                        tabIndex={onSelect ? 0 : undefined}
+                        onClick={() => onSelect?.(row.username)}
+                        onKeyDown={(e) => {
+                            if (
+                                onSelect &&
+                                (e.key === 'Enter' || e.key === ' ')
+                            ) {
+                                e.preventDefault();
+                                onSelect(row.username);
+                            }
+                        }}
                         className={cn(
                             'flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm',
                             row.user_id === myId ? 'bg-game-primary/15' : '',
+                            onSelect &&
+                                'cursor-pointer hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                         )}
                     >
                         <span className="w-5 text-xs font-bold text-foreground/40">

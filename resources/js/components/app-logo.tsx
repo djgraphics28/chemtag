@@ -9,7 +9,7 @@ export default function AppLogo() {
 
     return (
         <>
-            <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+            <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sidebar-primary text-sidebar-primary-foreground">
                 {branding?.app_logo_path ? (
                     <img src={branding.app_logo_path} alt={name} className="h-full w-full object-contain" />
                 ) : (

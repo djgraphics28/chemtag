@@ -3,6 +3,7 @@ import { ImageIcon, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
@@ -14,6 +15,7 @@ interface SettingsProps {
         app_logo_path: string | null;
         app_favicon_path: string | null;
         footer_text: string | null;
+        games_locked: string | null;
     };
 }
 
@@ -26,6 +28,7 @@ export default function SettingsIndex({ settings }: SettingsProps) {
         app_favicon: null as File | null,
         remove_logo: false,
         remove_favicon: false,
+        games_locked: settings.games_locked === '1',
     });
 
     function submit(e: React.FormEvent) {
@@ -39,21 +42,29 @@ export default function SettingsIndex({ settings }: SettingsProps) {
 
             <div className="max-w-2xl space-y-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground">System Settings</h1>
-                    <p className="text-sm text-muted-foreground">Branding and identity for the whole application</p>
+                    <h1 className="text-2xl font-bold text-foreground">
+                        System Settings
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        Branding and identity for the whole application
+                    </p>
                 </div>
 
                 <form onSubmit={submit} className="space-y-6">
                     {/* Identity */}
-                    <section className="rounded-2xl border border-border bg-card p-6 space-y-5">
-                        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Identity</h2>
+                    <section className="space-y-5 rounded-2xl border border-border bg-card p-6">
+                        <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                            Identity
+                        </h2>
 
                         <div className="grid gap-2">
                             <Label htmlFor="app_name">Project name</Label>
                             <Input
                                 id="app_name"
                                 value={data.app_name}
-                                onChange={(e) => setData('app_name', e.target.value)}
+                                onChange={(e) =>
+                                    setData('app_name', e.target.value)
+                                }
                                 placeholder="ChemTag"
                                 required
                                 maxLength={60}
@@ -66,7 +77,9 @@ export default function SettingsIndex({ settings }: SettingsProps) {
                             <Input
                                 id="app_tagline"
                                 value={data.app_tagline}
-                                onChange={(e) => setData('app_tagline', e.target.value)}
+                                onChange={(e) =>
+                                    setData('app_tagline', e.target.value)
+                                }
                                 placeholder="Master Organic Chemistry Naming"
                                 maxLength={120}
                             />
@@ -78,7 +91,9 @@ export default function SettingsIndex({ settings }: SettingsProps) {
                             <Input
                                 id="footer_text"
                                 value={data.footer_text}
-                                onChange={(e) => setData('footer_text', e.target.value)}
+                                onChange={(e) =>
+                                    setData('footer_text', e.target.value)
+                                }
                                 placeholder="© ChemTag · Built for STEM Education"
                                 maxLength={160}
                             />
@@ -87,8 +102,10 @@ export default function SettingsIndex({ settings }: SettingsProps) {
                     </section>
 
                     {/* Branding images */}
-                    <section className="rounded-2xl border border-border bg-card p-6 space-y-6">
-                        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Branding</h2>
+                    <section className="space-y-6 rounded-2xl border border-border bg-card p-6">
+                        <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                            Branding
+                        </h2>
 
                         <ImageField
                             label="Logo"
@@ -98,8 +115,20 @@ export default function SettingsIndex({ settings }: SettingsProps) {
                             file={data.app_logo}
                             removed={data.remove_logo}
                             error={errors.app_logo}
-                            onFile={(f) => setData((d) => ({ ...d, app_logo: f, remove_logo: false }))}
-                            onRemove={() => setData((d) => ({ ...d, app_logo: null, remove_logo: true }))}
+                            onFile={(f) =>
+                                setData((d) => ({
+                                    ...d,
+                                    app_logo: f,
+                                    remove_logo: false,
+                                }))
+                            }
+                            onRemove={() =>
+                                setData((d) => ({
+                                    ...d,
+                                    app_logo: null,
+                                    remove_logo: true,
+                                }))
+                            }
                         />
 
                         <ImageField
@@ -110,9 +139,54 @@ export default function SettingsIndex({ settings }: SettingsProps) {
                             file={data.app_favicon}
                             removed={data.remove_favicon}
                             error={errors.app_favicon}
-                            onFile={(f) => setData((d) => ({ ...d, app_favicon: f, remove_favicon: false }))}
-                            onRemove={() => setData((d) => ({ ...d, app_favicon: null, remove_favicon: true }))}
+                            onFile={(f) =>
+                                setData((d) => ({
+                                    ...d,
+                                    app_favicon: f,
+                                    remove_favicon: false,
+                                }))
+                            }
+                            onRemove={() =>
+                                setData((d) => ({
+                                    ...d,
+                                    app_favicon: null,
+                                    remove_favicon: true,
+                                }))
+                            }
                         />
+                    </section>
+
+                    {/* Game access */}
+                    <section className="space-y-4 rounded-2xl border border-border bg-card p-6">
+                        <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                            Game Access
+                        </h2>
+
+                        <label
+                            htmlFor="games_locked"
+                            className="flex cursor-pointer items-start gap-3"
+                        >
+                            <Checkbox
+                                id="games_locked"
+                                checked={data.games_locked}
+                                onCheckedChange={(checked) =>
+                                    setData('games_locked', checked === true)
+                                }
+                                className="mt-0.5"
+                            />
+                            <span className="grid gap-1">
+                                <span className="text-sm font-medium text-foreground">
+                                    Lock games
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                    While locked, players cannot open the game
+                                    or battle pages — they see a “games are
+                                    locked” notice instead. Admins keep full
+                                    access.
+                                </span>
+                            </span>
+                        </label>
+                        <InputError message={errors.games_locked} />
                     </section>
 
                     <div className="flex justify-end">
@@ -143,7 +217,17 @@ interface ImageFieldProps {
     onRemove: () => void;
 }
 
-function ImageField({ label, hint, accept, currentUrl, file, removed, error, onFile, onRemove }: ImageFieldProps) {
+function ImageField({
+    label,
+    hint,
+    accept,
+    currentUrl,
+    file,
+    removed,
+    error,
+    onFile,
+    onRemove,
+}: ImageFieldProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -160,13 +244,25 @@ function ImageField({ label, hint, accept, currentUrl, file, removed, error, onF
             <div className="flex items-center gap-4">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
                     {shownUrl ? (
-                        <img src={shownUrl} alt={`${label} preview`} className="h-full w-full object-contain" />
+                        <img
+                            src={shownUrl}
+                            alt={`${label} preview`}
+                            className="h-full w-full object-contain"
+                        />
                     ) : (
-                        <ImageIcon size={20} className="text-muted-foreground" />
+                        <ImageIcon
+                            size={20}
+                            className="text-muted-foreground"
+                        />
                     )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => inputRef.current?.click()}
+                    >
                         <Upload size={14} className="mr-1.5" />
                         {file ? file.name : `Upload ${label.toLowerCase()}`}
                     </Button>
@@ -179,7 +275,10 @@ function ImageField({ label, hint, accept, currentUrl, file, removed, error, onF
                             onClick={() => {
                                 handleFile(null);
                                 onRemove();
-                                if (inputRef.current) inputRef.current.value = '';
+
+                                if (inputRef.current) {
+inputRef.current.value = '';
+}
                             }}
                         >
                             <Trash2 size={14} className="mr-1" />

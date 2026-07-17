@@ -31,34 +31,6 @@ class GameSessionService
         return count($session->question_ids ?? []);
     }
 
-    /** Score deducted each time a 4-Pics-1-Word hint letter is revealed. */
-    public const HINT_COST = 25;
-
-    /**
-     * Reveal the answer letter at the given slot for the current
-     * 4-Pics-1-Word question, deducting HINT_COST from the session score.
-     *
-     * @return array{position: int, letter: string, cost: int, score: int}
-     */
-    public function revealHintLetter(GameSession $session, int $position): array
-    {
-        $question = $this->getNextQuestion($session);
-        abort_if($question === null, 422, 'No active question.');
-        abort_if($question->gameMode->code !== 'pattern_clue', 422, 'Hints are only available for clue questions.');
-
-        $answer = $question->clueAnswer();
-        abort_if($answer === null || $position >= strlen($answer), 422, 'Invalid hint position.');
-
-        $session->update(['score' => max(0, $session->score - self::HINT_COST)]);
-
-        return [
-            'position' => $position,
-            'letter' => $answer[$position],
-            'cost' => self::HINT_COST,
-            'score' => $session->score,
-        ];
-    }
-
     /**
      * @return array{correct: bool, explanation: string|null, points_earned: int, correct_choice_id: int|null, session: array<string,mixed>, is_game_over: bool}
      */

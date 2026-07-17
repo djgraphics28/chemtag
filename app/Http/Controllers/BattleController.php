@@ -98,7 +98,10 @@ class BattleController extends Controller
             return back()->with('error', 'Room not found. Check the code and try again.');
         }
 
-        $this->service->join($room, $request->user());
+        // Admins never join the roster — they go straight to observer mode.
+        if (! $request->user()->hasRole('admin')) {
+            $this->service->join($room, $request->user());
+        }
 
         return redirect()->route('battle.rooms.show', $room);
     }
@@ -108,8 +111,24 @@ class BattleController extends Controller
         $user = $request->user();
         $isPlayer = $room->players()->where('user_id', $user->id)->exists();
 
-        // Spectating is not supported; send non-players back to the lobby.
-        if (! $isPlayer) {
+        // Admins observe invisibly: no player row, so they never appear in
+        // the roster — but they can watch and use the room chat. The one
+        // exception is a room they host themselves (created deliberately).
+        $isObserver = $user->hasRole('admin') && $room->host_id !== $user->id;
+
+        // Clean up a roster entry left over from before (e.g. the admin
+        // joined as a player previously) so they are no longer listed.
+        if ($isObserver && $isPlayer) {
+            $this->service->leave($room, $user);
+            $isPlayer = false;
+
+            if (! $room->exists) {
+                return redirect()->route('battle.lobby');
+            }
+        }
+
+        // Spectating is not supported for regular players; send them back.
+        if (! $isPlayer && ! $isObserver) {
             if ($room->status !== 'waiting') {
                 return redirect()->route('battle.lobby')->with('error', 'That battle has already started.');
             }
@@ -137,6 +156,7 @@ class BattleController extends Controller
             'players' => $this->service->playersPayload($room),
             'scoreboard' => $room->status === 'finished' ? $this->service->scoreboard($room) : null,
             'current_round' => $activeRound ? $this->service->roundPayload($activeRound, $user) : null,
+            'is_observer' => $isObserver,
         ]);
     }
 
@@ -158,6 +178,35 @@ class BattleController extends Controller
         return back();
     }
 
+    public function chatIndex(Request $request, GameRoom $room): JsonResponse
+    {
+        return response()->json([
+            'messages' => $this->service->chatMessages($room, $request->user()),
+        ]);
+    }
+
+    public function chatStore(Request $request, GameRoom $room): JsonResponse
+    {
+        $validated = $request->validate([
+            'body' => ['required', 'string', 'max:500'],
+        ]);
+
+        return response()->json(
+            $this->service->sendChatMessage($room, $request->user(), $validated['body'])
+        );
+    }
+
+    public function kick(Request $request, GameRoom $room): RedirectResponse
+    {
+        $validated = $request->validate([
+            'user_id' => ['required', 'integer'],
+        ]);
+
+        $this->service->kick($room, $request->user(), (int) $validated['user_id']);
+
+        return back();
+    }
+
     public function leave(Request $request, GameRoom $room): RedirectResponse
     {
         $this->service->leave($room, $request->user());
@@ -174,7 +223,11 @@ class BattleController extends Controller
 
     public function round(Request $request, GameRoom $room): JsonResponse
     {
-        abort_unless($room->players()->where('user_id', $request->user()->id)->exists(), 403);
+        abort_unless(
+            $room->players()->where('user_id', $request->user()->id)->exists()
+                || $request->user()->hasRole('admin'),
+            403
+        );
 
         $round = $this->service->currentRound($room);
 
@@ -208,7 +261,11 @@ class BattleController extends Controller
 
     public function advance(Request $request, GameRoom $room): JsonResponse
     {
-        abort_unless($room->players()->where('user_id', $request->user()->id)->exists(), 403);
+        abort_unless(
+            $room->players()->where('user_id', $request->user()->id)->exists()
+                || $request->user()->hasRole('admin'),
+            403
+        );
 
         $this->service->advanceIfExpired($room);
 

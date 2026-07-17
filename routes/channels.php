@@ -7,11 +7,16 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
 });
 
-// Battle room presence channel: only players who joined the room may subscribe.
+// Battle room presence channel: players in the room may subscribe;
+// admins may too, so they can observe and chat without being listed.
 Broadcast::channel('battle.{code}', function ($user, string $code) {
     $room = GameRoom::where('code', $code)->first();
 
-    if (! $room || ! $room->players()->where('user_id', $user->id)->exists()) {
+    if (! $room) {
+        return false;
+    }
+
+    if (! $room->players()->where('user_id', $user->id)->exists() && ! $user->hasRole('admin')) {
         return false;
     }
 

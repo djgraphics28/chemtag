@@ -18,20 +18,20 @@ Route::inertia('/', 'welcome')->name('home');
 Route::middleware(['auth'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 
-    Route::prefix('game')->name('game.')->group(function () {
+    Route::prefix('game')->name('game.')->middleware('games.unlocked')->group(function () {
         Route::get('topics', [GameController::class, 'topics'])->name('topics');
         Route::post('sessions', [GameController::class, 'startSession'])->name('sessions.store');
         Route::get('sessions/{session}/play', [GameController::class, 'play'])->name('sessions.show');
         Route::get('sessions/{session}/question', [GameController::class, 'currentQuestion'])->name('sessions.question');
         Route::post('sessions/{session}/answers', [AnswerController::class, 'store'])->name('sessions.answers.store');
-        Route::post('sessions/{session}/hint', [GameController::class, 'hint'])->name('sessions.hint');
         Route::get('sessions/{session}/results', [GameController::class, 'results'])->name('sessions.results');
         Route::get('leaderboard', [GameController::class, 'leaderboard'])->name('leaderboard');
     });
 
     Route::get('players/{user:username}', [PlayerController::class, 'show'])->name('players.show');
+    Route::get('players/{user:username}/summary', [PlayerController::class, 'summary'])->name('players.summary');
 
-    Route::prefix('battle')->name('battle.')->group(function () {
+    Route::prefix('battle')->name('battle.')->middleware('games.unlocked')->group(function () {
         Route::get('/', [BattleController::class, 'lobby'])->name('lobby');
         Route::post('rooms', [BattleController::class, 'store'])->name('rooms.store');
         Route::post('join', [BattleController::class, 'join'])->name('join');
@@ -39,6 +39,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('rooms/{room:code}/ready', [BattleController::class, 'ready'])->name('rooms.ready');
         Route::post('rooms/{room:code}/team', [BattleController::class, 'team'])->name('rooms.team');
         Route::post('rooms/{room:code}/leave', [BattleController::class, 'leave'])->name('rooms.leave');
+        Route::post('rooms/{room:code}/kick', [BattleController::class, 'kick'])->name('rooms.kick');
+        Route::get('rooms/{room:code}/chat', [BattleController::class, 'chatIndex'])->name('rooms.chat.index');
+        Route::post('rooms/{room:code}/chat', [BattleController::class, 'chatStore'])
+            ->middleware('throttle:60,1')
+            ->name('rooms.chat.store');
         Route::post('rooms/{room:code}/start', [BattleController::class, 'start'])->name('rooms.start');
         Route::get('rooms/{room:code}/round', [BattleController::class, 'round'])->name('rooms.round');
         Route::post('rooms/{room:code}/answers', [BattleController::class, 'answer'])->name('rooms.answers');

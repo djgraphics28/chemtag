@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MoleculeView } from '@/components/chem/molecule-view';
@@ -8,6 +8,7 @@ import { ClueImageGrid } from '@/components/game/clue-image-grid';
 import { ClueTileGrid } from '@/components/game/clue-tile-grid';
 import { ConfettiBurst } from '@/components/game/confetti-burst';
 import { GameHud } from '@/components/game/game-hud';
+import { GameIntro } from '@/components/game/game-intro';
 import { ScorePopup } from '@/components/game/score-popup';
 import { WordBuilder } from '@/components/game/word-builder';
 import { useCountdown } from '@/hooks/use-countdown';
@@ -34,8 +35,12 @@ export default function Play({
     choices,
     progress,
 }: PlayProps) {
+    const { auth } = usePage<{ auth: { user: { name: string } } }>().props;
+
     const [session, setSession] = useState(initialSession);
     const [selectedId, setSelectedId] = useState<number | null>(null);
+    // Fun 5-second hype screen before the very first question
+    const [showIntro, setShowIntro] = useState(progress.answered === 0);
     const [result, setResult] = useState<AnswerResult | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [shake, setShake] = useState(0);
@@ -61,13 +66,18 @@ export default function Play({
     );
 
     useEffect(() => {
+        // Hold the timer until the intro screen is done
+        if (showIntro) {
+            return;
+        }
+
         startedAtRef.current = Date.now();
         reset(question.time_limit_seconds);
         setSelectedId(null);
         setResult(null);
         setIsSubmitting(false);
         start();
-    }, [question.id]);
+    }, [question.id, showIntro]);
 
     // Urgency tick during the last 5 seconds
     useEffect(() => {
@@ -159,26 +169,6 @@ export default function Play({
         submitAnswer(choiceId);
     }
 
-    async function requestHint(position: number) {
-        try {
-            const data = await apiFetch<{
-                position: number;
-                letter: string;
-                cost: number;
-                score: number;
-            }>(`/game/sessions/${session.id}/hint`, {
-                method: 'POST',
-                body: JSON.stringify({ position }),
-            });
-
-            setSession((prev) => ({ ...prev, score: data.score }));
-
-            return { position: data.position, letter: data.letter };
-        } catch {
-            return null;
-        }
-    }
-
     const isUrgent = secondsLeft > 0 && secondsLeft <= 5 && !result;
 
     return (
@@ -188,6 +178,14 @@ export default function Play({
             transition={{ duration: 0.45 }}
             className="relative flex min-h-screen flex-col"
         >
+            {showIntro && (
+                <GameIntro
+                    modeTitle={session.game_mode.title}
+                    topicName={session.topic.name}
+                    playerName={auth.user.name}
+                    onDone={() => setShowIntro(false)}
+                />
+            )}
             {/* Red vignette when time is almost up */}
             <div
                 aria-hidden
@@ -268,7 +266,6 @@ export default function Play({
                         }
                         correctWord={result?.correct_word}
                         onSubmit={(word) => submitAnswer(null, word)}
-                        onHint={requestHint}
                     />
                 ) : (
                     <ChoiceGrid

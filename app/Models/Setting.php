@@ -20,7 +20,13 @@ class Setting extends Model
         'app_logo_path' => null,
         'app_favicon_path' => null,
         'footer_text' => '© ChemTag · Built for STEM Education',
+        'games_locked' => '0',
     ];
+
+    public static function gamesLocked(): bool
+    {
+        return static::get('games_locked') === '1';
+    }
 
     public static function get(string $key, ?string $default = null): ?string
     {
