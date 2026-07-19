@@ -95,6 +95,16 @@ export default function BattleLobby({
 
     const joinForm = useForm({ code: '' });
 
+    /* Atari-style treatment applied only below the sm breakpoint. */
+    const retroCard =
+        'max-sm:rounded-xl max-sm:border-2 max-sm:border-game-navy max-sm:p-4 max-sm:shadow-[4px_4px_0_0_var(--color-game-navy)]';
+    const retroButton =
+        'max-sm:rounded-lg max-sm:border-2 max-sm:border-game-navy max-sm:font-display max-sm:tracking-widest max-sm:uppercase max-sm:shadow-[3px_3px_0_0_var(--color-game-navy)] max-sm:transition-all max-sm:active:translate-x-0.5 max-sm:active:translate-y-0.5 max-sm:active:shadow-none';
+    const retroTile =
+        'max-sm:rounded-lg max-sm:border-game-navy max-sm:shadow-[3px_3px_0_0_var(--color-game-navy)] max-sm:active:translate-x-0.5 max-sm:active:translate-y-0.5 max-sm:active:shadow-none';
+    const retroTileSelected =
+        'max-sm:rounded-lg max-sm:border-game-navy max-sm:translate-x-0.5 max-sm:translate-y-0.5 max-sm:shadow-none';
+
     function selectBattleType(type: 'single' | 'team') {
         createForm.setData('battle_type', type);
     }
@@ -116,7 +126,7 @@ export default function BattleLobby({
             <div className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
                 {/* Header */}
                 <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-game-coral/15">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-game-coral/15 max-sm:rounded-lg max-sm:border-2 max-sm:border-game-navy max-sm:bg-game-coral max-sm:shadow-[3px_3px_0_0_var(--color-game-navy)]">
                         <Swords size={24} className="text-game-danger" />
                     </div>
                     <div>
@@ -131,14 +141,14 @@ export default function BattleLobby({
                 </div>
 
                 {my_room_code && (
-                    <div className="flex items-center justify-between rounded-2xl border border-primary/40 bg-primary/10 px-5 py-4">
+                    <div className="flex items-center justify-between rounded-2xl border border-primary/40 bg-primary/10 px-5 py-4 max-sm:rounded-xl max-sm:border-2 max-sm:border-game-navy max-sm:px-3 max-sm:py-3 max-sm:shadow-[4px_4px_0_0_var(--color-game-navy)]">
                         <p className="text-sm font-medium text-foreground">
                             You're already in room{' '}
                             <span className="font-mono font-bold">
                                 {my_room_code}
                             </span>
                         </p>
-                        <Button asChild size="sm">
+                        <Button asChild size="sm" className={retroButton}>
                             <Link href={`/battle/rooms/${my_room_code}`}>
                                 Rejoin <ArrowRight size={14} className="ml-1" />
                             </Link>
@@ -149,7 +159,12 @@ export default function BattleLobby({
                 {/* Create + Join */}
                 <div className="grid gap-4 sm:grid-cols-2">
                     {/* Create room */}
-                    <div className="rounded-3xl border border-border bg-card p-6">
+                    <div
+                        className={cn(
+                            'rounded-3xl border border-border bg-card p-6',
+                            retroCard,
+                        )}
+                    >
                         <h2 className="mb-1 font-display text-lg font-bold text-foreground">
                             Create a Room
                         </h2>
@@ -195,8 +210,15 @@ export default function BattleLobby({
                                                 'flex items-center justify-center gap-1.5 rounded-xl border-2 px-3 py-2 text-sm font-semibold transition-all',
                                                 createForm.data.battle_type ===
                                                     'single'
-                                                    ? 'border-game-purple bg-game-purple/15 text-foreground'
-                                                    : 'border-border bg-background text-muted-foreground hover:border-game-purple/40',
+                                                    ? cn(
+                                                          'border-game-purple bg-game-purple/15 text-foreground',
+                                                          retroTileSelected,
+                                                          'max-sm:bg-game-purple max-sm:text-game-navy',
+                                                      )
+                                                    : cn(
+                                                          'border-border bg-background text-muted-foreground hover:border-game-purple/40',
+                                                          retroTile,
+                                                      ),
                                             )}
                                         >
                                             <User size={14} />
@@ -211,8 +233,15 @@ export default function BattleLobby({
                                                 'flex items-center justify-center gap-1.5 rounded-xl border-2 px-3 py-2 text-sm font-semibold transition-all',
                                                 createForm.data.battle_type ===
                                                     'team'
-                                                    ? 'border-game-purple bg-game-purple/15 text-foreground'
-                                                    : 'border-border bg-background text-muted-foreground hover:border-game-purple/40',
+                                                    ? cn(
+                                                          'border-game-purple bg-game-purple/15 text-foreground',
+                                                          retroTileSelected,
+                                                          'max-sm:bg-game-purple max-sm:text-game-navy',
+                                                      )
+                                                    : cn(
+                                                          'border-border bg-background text-muted-foreground hover:border-game-purple/40',
+                                                          retroTile,
+                                                      ),
                                             )}
                                         >
                                             <Shield size={14} />
@@ -323,8 +352,15 @@ export default function BattleLobby({
                                                             createForm.data
                                                                 .team_size ===
                                                                 size
-                                                                ? 'border-game-purple bg-game-purple/15 text-foreground'
-                                                                : 'border-border bg-background text-muted-foreground hover:border-game-purple/40',
+                                                                ? cn(
+                                                                      'border-game-purple bg-game-purple/15 text-foreground',
+                                                                      retroTileSelected,
+                                                                      'max-sm:bg-game-purple max-sm:text-game-navy',
+                                                                  )
+                                                                : cn(
+                                                                      'border-border bg-background text-muted-foreground hover:border-game-purple/40',
+                                                                      retroTile,
+                                                                  ),
                                                         )}
                                                     >
                                                         {size}v{size}
@@ -385,7 +421,7 @@ export default function BattleLobby({
                                 )}
                                 <Button
                                     type="submit"
-                                    className="w-full"
+                                    className={cn('w-full', retroButton)}
                                     disabled={createForm.processing}
                                 >
                                     <Plus size={15} className="mr-1" />
@@ -395,7 +431,7 @@ export default function BattleLobby({
                         ) : (
                             <Button
                                 onClick={() => setShowCreate(true)}
-                                className="w-full"
+                                className={cn('w-full', retroButton)}
                             >
                                 <Plus size={15} className="mr-1" />
                                 New Battle Room
@@ -404,7 +440,12 @@ export default function BattleLobby({
                     </div>
 
                     {/* Join by code */}
-                    <div className="rounded-3xl border border-border bg-card p-6">
+                    <div
+                        className={cn(
+                            'rounded-3xl border border-border bg-card p-6',
+                            retroCard,
+                        )}
+                    >
                         <h2 className="mb-1 font-display text-lg font-bold text-foreground">
                             Join with Code
                         </h2>
@@ -432,7 +473,7 @@ export default function BattleLobby({
                             <Button
                                 type="submit"
                                 variant="secondary"
-                                className="w-full"
+                                className={cn('w-full', retroButton)}
                                 disabled={
                                     joinForm.processing ||
                                     joinForm.data.code.length !== 6
@@ -475,6 +516,7 @@ export default function BattleLobby({
                                         className={cn(
                                             'flex items-center gap-4 rounded-2xl border-2 bg-card px-5 py-4',
                                             colors.border,
+                                            'max-sm:flex-wrap max-sm:gap-2 max-sm:rounded-xl max-sm:border-game-navy max-sm:px-3 max-sm:py-3 max-sm:shadow-[4px_4px_0_0_var(--color-game-navy)]',
                                         )}
                                     >
                                         <span
@@ -523,6 +565,7 @@ export default function BattleLobby({
                                                 size="sm"
                                                 variant="outline"
                                                 asChild
+                                                className={retroButton}
                                             >
                                                 <Link
                                                     href={`/battle/rooms/${room.code}`}
@@ -537,6 +580,7 @@ export default function BattleLobby({
                                         ) : (
                                             <Button
                                                 size="sm"
+                                                className={retroButton}
                                                 onClick={() =>
                                                     router.post(
                                                         '/battle/join',

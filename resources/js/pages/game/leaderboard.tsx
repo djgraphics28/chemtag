@@ -68,7 +68,7 @@ export default function Leaderboard({
             <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-8">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="font-display text-3xl font-bold text-foreground">
+                        <h1 className="font-display text-2xl font-bold text-foreground sm:text-3xl">
                             Hall of Fame 🏆
                         </h1>
                         {userRank && (
@@ -80,19 +80,19 @@ export default function Leaderboard({
                             </p>
                         )}
                     </div>
-                    <span className="flex h-12 w-12 animate-wiggle items-center justify-center rounded-2xl bg-gradient-to-br from-game-warning/60 to-game-coral text-game-navy shadow-lg shadow-game-warning/30">
+                    <span className="flex h-12 w-12 animate-wiggle items-center justify-center rounded-2xl bg-gradient-to-br from-game-warning/60 to-game-coral text-game-navy shadow-lg shadow-game-warning/30 max-sm:rounded-lg max-sm:border-2 max-sm:border-game-navy max-sm:shadow-[3px_3px_0_0_var(--color-game-navy)]">
                         <Trophy size={24} />
                     </span>
                 </div>
 
                 {/* Topic filter */}
-                <div className="flex gap-2 overflow-x-auto pb-1">
+                <div className="flex gap-2 overflow-x-auto pb-1 max-sm:pt-0.5 max-sm:pr-1 max-sm:pb-2">
                     <button
                         onClick={() => handleTopicChange('')}
-                        className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-bold transition-all ${
+                        className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-bold transition-all max-sm:rounded-lg max-sm:border-2 max-sm:border-game-navy max-sm:px-3 max-sm:font-display max-sm:text-xs max-sm:tracking-wider max-sm:uppercase ${
                             !selectedTopicId
-                                ? 'bg-gradient-to-r from-game-purple to-game-sky text-game-navy shadow-md shadow-game-purple/25'
-                                : 'bg-muted text-muted-foreground hover:bg-game-purple/10 hover:text-foreground'
+                                ? 'bg-gradient-to-r from-game-purple to-game-sky text-game-navy shadow-md shadow-game-purple/25 max-sm:translate-x-0.5 max-sm:translate-y-0.5 max-sm:shadow-none'
+                                : 'bg-muted text-muted-foreground hover:bg-game-purple/10 hover:text-foreground max-sm:bg-card max-sm:shadow-[3px_3px_0_0_var(--color-game-navy)] max-sm:active:translate-x-0.5 max-sm:active:translate-y-0.5 max-sm:active:shadow-none'
                         }`}
                     >
                         All Topics
@@ -101,10 +101,10 @@ export default function Leaderboard({
                         <button
                             key={topic.id}
                             onClick={() => handleTopicChange(String(topic.id))}
-                            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-bold transition-all ${
+                            className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-bold transition-all max-sm:rounded-lg max-sm:border-2 max-sm:border-game-navy max-sm:px-3 max-sm:font-display max-sm:text-xs max-sm:tracking-wider max-sm:uppercase ${
                                 selectedTopicId === topic.id
-                                    ? 'bg-gradient-to-r from-game-purple to-game-sky text-game-navy shadow-md shadow-game-purple/25'
-                                    : 'bg-muted text-muted-foreground hover:bg-game-purple/10 hover:text-foreground'
+                                    ? 'bg-gradient-to-r from-game-purple to-game-sky text-game-navy shadow-md shadow-game-purple/25 max-sm:translate-x-0.5 max-sm:translate-y-0.5 max-sm:shadow-none'
+                                    : 'bg-muted text-muted-foreground hover:bg-game-purple/10 hover:text-foreground max-sm:bg-card max-sm:shadow-[3px_3px_0_0_var(--color-game-navy)] max-sm:active:translate-x-0.5 max-sm:active:translate-y-0.5 max-sm:active:shadow-none'
                             }`}
                         >
                             {topic.name}
@@ -139,7 +139,7 @@ export default function Leaderboard({
                                         {style.medal}
                                     </span>
                                     <div
-                                        className={`mt-1 flex h-12 w-12 items-center justify-center rounded-full font-display text-lg font-bold uppercase ring-4 ${style.avatar}`}
+                                        className={`mt-1 flex h-12 w-12 items-center justify-center rounded-full font-display text-lg font-bold uppercase ring-4 max-sm:rounded-lg max-sm:border-2 max-sm:border-game-navy max-sm:shadow-[3px_3px_0_0_var(--color-game-navy)] max-sm:ring-0 ${style.avatar}`}
                                     >
                                         {i === 0 && (
                                             <Crown
@@ -156,7 +156,7 @@ export default function Leaderboard({
                                         {player.best_score.toLocaleString()}
                                     </p>
                                     <div
-                                        className={`mt-2 w-full rounded-t-2xl ${style.height} ${style.bar}`}
+                                        className={`mt-2 w-full rounded-t-2xl max-sm:rounded-t-md max-sm:border-2 max-sm:border-b-0 max-sm:border-game-navy ${style.height} ${style.bar}`}
                                     />
                                 </div>
                             );
@@ -169,9 +169,9 @@ export default function Leaderboard({
                     {rest.map((player, i) => (
                         <div
                             key={player.user?.id ?? i}
-                            className="flex items-center gap-4 rounded-2xl border-2 border-border bg-card px-4 py-3 transition-colors hover:border-game-purple/30"
+                            className="flex items-center gap-4 rounded-2xl border-2 border-border bg-card px-4 py-3 transition-colors hover:border-game-purple/30 max-sm:gap-3 max-sm:rounded-xl max-sm:border-game-navy max-sm:px-3 max-sm:shadow-[3px_3px_0_0_var(--color-game-navy)]"
                         >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-bold text-muted-foreground">
+                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-bold text-muted-foreground max-sm:rounded-md max-sm:border max-sm:border-game-navy max-sm:font-display">
                                 {i + 4}
                             </span>
 

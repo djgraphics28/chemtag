@@ -16,9 +16,9 @@ import {
 import { dashboard } from '@/routes';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
+export const mainNavItems: NavItem[] = [
     { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
-    { title: 'Topics', href: '/game/topics', icon: Map },
+    { title: 'Solo Quest', href: '/game/topics', icon: Map },
     { title: 'Battle Arena', href: '/battle', icon: Swords },
     { title: 'Leaderboard', href: '/game/leaderboard', icon: Trophy },
 ];
