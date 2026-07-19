@@ -9,12 +9,12 @@ import AuthLayout from '@/layouts/auth-layout';
 import GameLayout from '@/layouts/game-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
-// Mirrors the backend: production builds default to Pusher (shared hosting
-// can't run Reverb), everything else uses the local Reverb server.
-// VITE_BROADCAST_CONNECTION overrides in either direction.
-const broadcaster =
-    import.meta.env.VITE_BROADCAST_CONNECTION ??
-    (import.meta.env.PROD ? 'pusher' : 'reverb');
+// Production builds always use Pusher (shared hosting can't run Reverb),
+// even when built locally where .env says reverb. In dev,
+// VITE_BROADCAST_CONNECTION can override the local Reverb default.
+const broadcaster = import.meta.env.PROD
+    ? 'pusher'
+    : (import.meta.env.VITE_BROADCAST_CONNECTION ?? 'reverb');
 
 if (broadcaster === 'pusher') {
     configureEcho({
