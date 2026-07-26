@@ -495,10 +495,14 @@ class QuestionController extends Controller
             'points' => ['integer', 'min:10', 'max:1000'],
             'time_limit_seconds' => ['integer', 'min:5', 'max:120'],
             'is_active' => ['boolean'],
+            'remove_prompt_image' => ['boolean'],
+            'remove_clue_images' => ['nullable', 'array', 'max:4'],
+            'remove_clue_images.*' => ['boolean'],
             'choices' => ['required', 'array', 'min:1', 'max:6'],
             'choices.*.id' => ['nullable', 'integer'],
             'choices.*.choice_text' => ['nullable', 'string', 'max:500'],
             'choices.*.choice_image' => ['nullable', 'image', 'max:4096'],
+            'choices.*.remove_choice_image' => ['boolean'],
             'choices.*.choice_smiles' => ['nullable', 'string', 'max:20000'],
             'choices.*.is_correct' => ['boolean'],
             'choices.*.feedback_text' => ['nullable', 'string', 'max:1000'],
@@ -520,6 +524,9 @@ class QuestionController extends Controller
             if ($request->hasFile('prompt_image')) {
                 // singleFile collection: the new upload replaces the old one
                 $question->addMediaFromRequest('prompt_image')->toMediaCollection('prompt_image');
+            } elseif ($data['remove_prompt_image'] ?? false) {
+                $question->clearMediaCollection('prompt_image');
+                $question->update(['prompt_image_path' => null]);
             }
 
             // 4 Pics 1 Word clue images: each upload replaces its 1-4 grid slot
@@ -533,10 +540,24 @@ class QuestionController extends Controller
                     ->toMediaCollection('clue_images');
             }
 
+            // Explicit removals for slots that got no replacement upload
+            foreach ($data['remove_clue_images'] ?? [] as $slot => $shouldRemove) {
+                if (! $shouldRemove || $request->hasFile("clue_images.{$slot}")) {
+                    continue;
+                }
+
+                $question->getMedia('clue_images')
+                    ->filter(fn ($media) => (int) $media->getCustomProperty('slot', -1) === (int) $slot)
+                    ->each(fn ($media) => $media->delete());
+            }
+
             $incomingIds = collect($data['choices'])->pluck('id')->filter()->all();
             $question->choices()->whereNotIn('id', $incomingIds)->delete();
 
             foreach (array_values($data['choices']) as $index => $choiceData) {
+                $removeChoiceImage = $choiceData['remove_choice_image'] ?? false;
+                unset($choiceData['remove_choice_image']);
+
                 $choice = ! empty($choiceData['id'])
                     ? QuestionChoice::find($choiceData['id'])
                     : null;
@@ -549,6 +570,9 @@ class QuestionController extends Controller
 
                 if ($file = $request->file("choices.{$index}.choice_image")) {
                     $choice->addMedia($file)->toMediaCollection('choice_image');
+                } elseif ($removeChoiceImage) {
+                    $choice->clearMediaCollection('choice_image');
+                    $choice->update(['choice_image_path' => null]);
                 }
             }
         });

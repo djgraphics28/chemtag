@@ -20,6 +20,7 @@ interface Choice {
     feedback_text?: string | null;
     choice_image: File | null;
     choice_image_url?: string | null;
+    remove_choice_image?: boolean;
     choice_smiles?: string | null;
     is_correct: boolean;
     sort_order: number;
@@ -75,8 +76,10 @@ export default function QuestionForm({
         topic_id: question?.topic_id ?? topics[0]?.id ?? 0,
         prompt_text: question?.prompt_text ?? '',
         prompt_image: null as File | null,
+        remove_prompt_image: false,
         answer_word: question?.choices?.[0]?.choice_text ?? '',
         clue_images: [null, null, null, null] as (File | null)[],
+        remove_clue_images: [false, false, false, false],
         prompt_smiles: question?.prompt_smiles ?? '',
         explanation: question?.explanation ?? '',
         points: question?.points ?? 100,
@@ -85,6 +88,7 @@ export default function QuestionForm({
         choices: question?.choices.map((c) => ({
             ...c,
             choice_image: null,
+            remove_choice_image: false,
         })) ?? [emptyChoice(0), emptyChoice(1), emptyChoice(2), emptyChoice(3)],
     });
 
@@ -361,7 +365,13 @@ export default function QuestionForm({
                                                             i
                                                         ] ?? null
                                                     }
-                                                    onFile={(f) =>
+                                                    removed={
+                                                        data
+                                                            .remove_clue_images[
+                                                            i
+                                                        ]
+                                                    }
+                                                    onFile={(f) => {
                                                         setData(
                                                             'clue_images',
                                                             data.clue_images.map(
@@ -370,8 +380,40 @@ export default function QuestionForm({
                                                                         ? f
                                                                         : cur,
                                                             ),
-                                                        )
-                                                    }
+                                                        );
+
+                                                        if (f) {
+                                                            setData(
+                                                                'remove_clue_images',
+                                                                data.remove_clue_images.map(
+                                                                    (r, j) =>
+                                                                        j === i
+                                                                            ? false
+                                                                            : r,
+                                                                ),
+                                                            );
+                                                        }
+                                                    }}
+                                                    onRemove={() => {
+                                                        setData(
+                                                            'clue_images',
+                                                            data.clue_images.map(
+                                                                (cur, j) =>
+                                                                    j === i
+                                                                        ? null
+                                                                        : cur,
+                                                            ),
+                                                        );
+                                                        setData(
+                                                            'remove_clue_images',
+                                                            data.remove_clue_images.map(
+                                                                (r, j) =>
+                                                                    j === i
+                                                                        ? true
+                                                                        : r,
+                                                            ),
+                                                        );
+                                                    }}
                                                     compact
                                                 />
                                             </div>
@@ -407,7 +449,18 @@ export default function QuestionForm({
                             <ImageUploadField
                                 file={data.prompt_image}
                                 currentUrl={question?.prompt_image_url ?? null}
-                                onFile={(file) => setData('prompt_image', file)}
+                                removed={data.remove_prompt_image}
+                                onFile={(file) => {
+                                    setData('prompt_image', file);
+
+                                    if (file) {
+                                        setData('remove_prompt_image', false);
+                                    }
+                                }}
+                                onRemove={() => {
+                                    setData('prompt_image', null);
+                                    setData('remove_prompt_image', true);
+                                }}
                             />
                             <InputError message={errors.prompt_image} />
                         </div>
@@ -526,13 +579,36 @@ export default function QuestionForm({
                                                         choice.choice_image_url ??
                                                         null
                                                     }
-                                                    onFile={(file) =>
+                                                    removed={
+                                                        choice.remove_choice_image
+                                                    }
+                                                    onFile={(file) => {
                                                         updateChoice(
                                                             i,
                                                             'choice_image',
                                                             file,
-                                                        )
-                                                    }
+                                                        );
+
+                                                        if (file) {
+                                                            updateChoice(
+                                                                i,
+                                                                'remove_choice_image',
+                                                                false,
+                                                            );
+                                                        }
+                                                    }}
+                                                    onRemove={() => {
+                                                        updateChoice(
+                                                            i,
+                                                            'choice_image',
+                                                            null,
+                                                        );
+                                                        updateChoice(
+                                                            i,
+                                                            'remove_choice_image',
+                                                            true,
+                                                        );
+                                                    }}
                                                     compact
                                                 />
                                             )}
@@ -607,20 +683,26 @@ QuestionForm.layout = {
 interface ImageUploadFieldProps {
     file: File | null;
     currentUrl: string | null;
+    /** True when the saved image has been marked for removal on submit. */
+    removed?: boolean;
     onFile: (file: File | null) => void;
+    /** Marks the saved image (currentUrl) for removal on submit. */
+    onRemove?: () => void;
     compact?: boolean;
 }
 
 function ImageUploadField({
     file,
     currentUrl,
+    removed = false,
     onFile,
+    onRemove,
     compact = false,
 }: ImageUploadFieldProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-    const shownUrl = previewUrl ?? currentUrl;
+    const shownUrl = previewUrl ?? (removed ? null : currentUrl);
 
     function handleFile(selected: File | null) {
         onFile(selected);
@@ -671,6 +753,23 @@ function ImageUploadField({
                         <Trash2 size={14} className="mr-1" />
                         Clear
                     </Button>
+                )}
+                {!file && currentUrl && !removed && onRemove && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={onRemove}
+                    >
+                        <Trash2 size={14} className="mr-1" />
+                        Remove
+                    </Button>
+                )}
+                {removed && (
+                    <span className="text-xs font-medium text-destructive">
+                        Marked for removal
+                    </span>
                 )}
             </div>
             <input
