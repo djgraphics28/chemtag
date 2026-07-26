@@ -9,6 +9,7 @@ import { ClueTileGrid } from '@/components/game/clue-tile-grid';
 import { ConfettiBurst } from '@/components/game/confetti-burst';
 import { GameHud } from '@/components/game/game-hud';
 import { GameIntro } from '@/components/game/game-intro';
+import { GuessMyNameHeader } from '@/components/game/guess-my-name-header';
 import { ScorePopup } from '@/components/game/score-popup';
 import { WordBuilder } from '@/components/game/word-builder';
 import { Button } from '@/components/ui/button';
@@ -190,6 +191,7 @@ export default function Play({
     }
 
     const isUrgent = secondsLeft > 0 && secondsLeft <= 5 && !result;
+    const isGuessMyName = session.game_mode.code === 'pattern_clue';
 
     return (
         <motion.div
@@ -276,6 +278,14 @@ export default function Play({
                     transition={{ duration: 0.3 }}
                     className="flex flex-col items-center gap-4 rounded-3xl border border-foreground/10 bg-foreground/5 px-6 py-8"
                 >
+                    {isGuessMyName && (
+                        <GuessMyNameHeader
+                            title={session.game_mode.title}
+                            questionNumber={progress.answered + 1}
+                            totalQuestions={progress.total}
+                            score={session.score}
+                        />
+                    )}
                     {question.clue_image_urls?.length > 0 ? (
                         <ClueImageGrid urls={question.clue_image_urls} />
                     ) : question.letters?.length && question.prompt_smiles ? (
@@ -296,9 +306,11 @@ export default function Play({
                             {question.prompt_text}
                         </p>
                     )}
-                    <div className="text-xs font-medium text-foreground/40">
-                        {question.points} pts · {session.game_mode.title}
-                    </div>
+                    {!isGuessMyName && (
+                        <div className="text-xs font-medium text-foreground/40">
+                            {question.points} pts · {session.game_mode.title}
+                        </div>
+                    )}
                 </motion.div>
 
                 {question.letters?.length ? (

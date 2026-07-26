@@ -113,7 +113,7 @@ function Tile({
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.08 }}
-            className="relative flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-foreground/10 bg-white p-2"
+            className="relative flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-2xl border-[3px] border-foreground/70 bg-white p-2 shadow-[0_3px_0_0_rgb(0_0_0_/_0.15)]"
         >
             <span className="absolute top-2 left-3 text-[10px] font-semibold tracking-wide text-slate-400 uppercase">
                 {label}

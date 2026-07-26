@@ -96,14 +96,14 @@ export function WordBuilder({
                         }
                         onClick={() => clearSlot(i)}
                         className={cn(
-                            'flex h-11 w-9 items-center justify-center rounded-lg border-2 font-display text-lg font-extrabold shadow-sm transition-colors sm:h-12 sm:w-10',
+                            'flex h-11 w-9 items-center justify-center rounded-lg border-[3px] font-display text-lg font-extrabold shadow-[0_2px_0_0_rgb(0_0_0_/_0.15)] transition-colors sm:h-12 sm:w-10',
                             status === 'correct'
                                 ? 'border-game-correct bg-game-correct/20 text-game-correct'
                                 : status === 'wrong'
                                   ? 'border-game-danger bg-game-danger/20 text-game-danger'
                                   : tileIndex !== null
-                                    ? 'border-game-primary bg-white text-foreground'
-                                    : 'border-foreground/15 bg-foreground/5 text-transparent shadow-none',
+                                    ? 'border-foreground/70 bg-white text-foreground'
+                                    : 'border-foreground/25 bg-foreground/5 text-transparent shadow-none',
                         )}
                     >
                         {tileIndex !== null ? letters[tileIndex] : '·'}
@@ -125,8 +125,8 @@ export function WordBuilder({
             )}
 
             {/* Letter keyboard + clear button */}
-            <div className="flex items-center justify-center gap-2">
-                <div className="flex max-w-xs flex-wrap items-center justify-center gap-1.5 sm:max-w-sm">
+            <div className="flex items-end justify-center gap-2">
+                <div className="flex max-w-xs flex-wrap items-center justify-center gap-1.5 rounded-3xl border-[3px] border-foreground/70 bg-game-purple/20 px-4 py-4 sm:max-w-sm">
                     {letters.map((letter, tileIndex) => {
                         const used = usedTileIndexes.has(tileIndex);
 
@@ -145,10 +145,10 @@ export function WordBuilder({
                                 disabled={used || !interactive}
                                 onClick={() => placeTile(tileIndex)}
                                 className={cn(
-                                    'flex h-10 w-9 items-center justify-center rounded-lg border-2 font-display text-base font-bold transition-all sm:h-11 sm:w-10',
+                                    'flex h-10 w-9 items-center justify-center rounded-lg border-[3px] font-display text-base font-bold transition-all sm:h-11 sm:w-10',
                                     used
                                         ? 'border-transparent bg-foreground/5 text-transparent'
-                                        : 'cursor-pointer border-foreground/15 bg-white text-foreground shadow-[0_2px_0_0_rgb(0_0_0_/_0.08)] hover:-translate-y-0.5 hover:border-game-primary/60',
+                                        : 'cursor-pointer border-foreground/70 bg-game-purple text-game-navy shadow-[0_2px_0_0_rgb(0_0_0_/_0.2)] hover:-translate-y-0.5 hover:border-foreground',
                                     !interactive && 'cursor-not-allowed',
                                 )}
                             >
@@ -164,7 +164,7 @@ export function WordBuilder({
                     disabled={!interactive}
                     onClick={clearAll}
                     aria-label="Clear all letters"
-                    className="flex h-10 w-10 items-center justify-center self-end rounded-lg bg-game-correct text-white shadow-[0_2px_0_0_rgb(0_0_0_/_0.15)] transition-all hover:brightness-105 disabled:opacity-40 sm:h-11 sm:w-11"
+                    className="flex h-10 w-10 items-center justify-center rounded-lg border-[3px] border-foreground/70 bg-game-correct text-white shadow-[0_2px_0_0_rgb(0_0_0_/_0.2)] transition-all hover:brightness-105 disabled:opacity-40 sm:h-11 sm:w-11"
                 >
                     <Trash2 size={16} />
                 </motion.button>

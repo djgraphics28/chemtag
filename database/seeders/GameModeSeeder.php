@@ -26,7 +26,7 @@ class GameModeSeeder extends Seeder
             ],
             [
                 'code' => 'pattern_clue',
-                'title' => 'Clue Hunter',
+                'title' => 'Guess My Name!',
                 'description' => 'Four structures share a common feature — identify the substituent or parent chain.',
                 'icon' => 'search',
                 'is_active' => true,

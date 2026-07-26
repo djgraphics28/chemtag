@@ -14,7 +14,7 @@ export function ClueImageGrid({ urls }: { urls: string[] }) {
                     transition={{ delay: i * 0.08 }}
                     src={url}
                     alt={`Clue ${i + 1}`}
-                    className="aspect-square w-full rounded-2xl border-2 border-foreground/10 bg-white object-cover"
+                    className="aspect-square w-full rounded-2xl border-[3px] border-foreground/70 bg-white object-cover shadow-[0_3px_0_0_rgb(0_0_0_/_0.15)]"
                 />
             ))}
         </div>
