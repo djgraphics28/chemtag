@@ -7,7 +7,7 @@ import {
     Trash2,
     Upload,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MoleculeEditor } from '@/components/chem/molecule-editor';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 interface Choice {
+    /** Stable client-side identity for React keys — never sent to the server. */
+    _key: string;
     id?: number;
     choice_text: string;
     feedback_text?: string | null;
@@ -48,6 +50,7 @@ interface QuestionFormProps {
 
 function emptyChoice(order: number): Choice {
     return {
+        _key: crypto.randomUUID(),
         choice_text: '',
         choice_image: null,
         choice_smiles: '',
@@ -87,6 +90,7 @@ export default function QuestionForm({
         is_active: question?.is_active ?? true,
         choices: question?.choices.map((c) => ({
             ...c,
+            _key: c.id ? String(c.id) : crypto.randomUUID(),
             choice_image: null,
             remove_choice_image: false,
         })) ?? [emptyChoice(0), emptyChoice(1), emptyChoice(2), emptyChoice(3)],
@@ -97,10 +101,16 @@ export default function QuestionForm({
         field: keyof Choice,
         value: string | boolean | number | File | null,
     ) {
-        const updated = data.choices.map((c, i) =>
-            i === index ? { ...c, [field]: value } : c,
-        );
-        setData('choices', updated);
+        // Functional form reads Inertia's live data ref rather than this
+        // render's stale closure, so back-to-back calls (e.g. setting
+        // choice_image then remove_choice_image in the same handler)
+        // don't clobber each other.
+        setData((prev) => ({
+            ...prev,
+            choices: prev.choices.map((c, i) =>
+                i === index ? { ...c, [field]: value } : c,
+            ),
+        }));
     }
 
     function addChoice() {
@@ -512,7 +522,7 @@ export default function QuestionForm({
                             >
                                 {data.choices.map((choice, i) => (
                                     <div
-                                        key={i}
+                                        key={choice._key}
                                         className={`flex gap-3 rounded-xl border-2 p-3 transition-colors ${
                                             choice.is_correct
                                                 ? 'border-game-correct bg-game-correct/5'
@@ -702,11 +712,27 @@ function ImageUploadField({
     const inputRef = useRef<HTMLInputElement>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+    // Re-derive the preview from the `file` prop itself (rather than only
+    // when this component's own handler picks a file) so a stale blob
+    // preview can't stick around if a choice gets reordered/removed and
+    // this component instance is reused for different underlying data.
+    useEffect(() => {
+        if (!file) {
+            setPreviewUrl(null);
+
+            return;
+        }
+
+        const url = URL.createObjectURL(file);
+        setPreviewUrl(url);
+
+        return () => URL.revokeObjectURL(url);
+    }, [file]);
+
     const shownUrl = previewUrl ?? (removed ? null : currentUrl);
 
     function handleFile(selected: File | null) {
         onFile(selected);
-        setPreviewUrl(selected ? URL.createObjectURL(selected) : null);
     }
 
     return (
